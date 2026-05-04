@@ -16,6 +16,7 @@ export function getPlayerView(state: GameState, playerId: string): PlayerView {
         name: player.name,
         lives: player.lives,
         eliminated: player.eliminated,
+        classId: player.classId,
       })),
     chamberLive: state.chamber.liveCount,
     chamberBlank: state.chamber.blankCount,

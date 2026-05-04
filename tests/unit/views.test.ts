@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { defaultClassState } from '../../src/game/classes';
 import { applyAction, initGame } from '../../src/game/engine';
 import { getPlayerView } from '../../src/game/views';
 import type { Player } from '../../src/game/types';
@@ -8,9 +9,11 @@ const makePlayer = (id: string, name: string): Player => ({
   name,
   profileId: null,
   lives: 4,
-  inventory: { chocolate: 1, magnifier: 1 },
+  inventory: { chocolate: 1, magnifier: 1, knife: 0 },
   isBot: false,
   eliminated: false,
+  classId: null,
+  classState: defaultClassState(),
 });
 
 describe('getPlayerView', () => {
@@ -46,5 +49,20 @@ describe('getPlayerView', () => {
     expect(() =>
       getPlayerView(initGame([makePlayer('a', 'A'), makePlayer('b', 'B')], 1), 'zzz'),
     ).toThrow();
+  });
+
+  it('otherPlayers expose classId (public info)', () => {
+    const state = initGame(
+      [
+        { ...makePlayer('a', 'A'), classId: 'medic' },
+        { ...makePlayer('b', 'B'), classId: null },
+      ],
+      1,
+    );
+
+    const view = getPlayerView(state, 'a');
+
+    expect(view.otherPlayers[0]!.classId).toBe(null);
+    expect((view.otherPlayers[0] as unknown as { classState?: unknown }).classState).toBeUndefined();
   });
 });
