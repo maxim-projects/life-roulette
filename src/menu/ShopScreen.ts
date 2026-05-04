@@ -1,11 +1,16 @@
-import type { ItemId } from '../game/types';
+import { ALL_CLASS_IDS, CLASS_PRICES } from '../game/classes';
+import type { ClassId } from '../game/types';
+import { CLASS_DESCRIPTIONS, CLASS_ICONS, CLASS_NAMES } from '../i18n';
 import { createProfile, getProfile, listProfiles, updateProfile } from '../persistence/profiles';
 
 export interface ShopScreenProps {
   onBack: () => void;
+  onBuyClass?: (classId: ClassId) => void;
 }
 
-const ITEM_PRICES: Record<ItemId, number> = {
+type ShopItemId = 'chocolate' | 'magnifier';
+
+const ITEM_PRICES: Record<ShopItemId, number> = {
   chocolate: 50,
   magnifier: 50,
 };
@@ -40,7 +45,7 @@ export function mountShopScreen(parent: HTMLElement, props: ShopScreenProps): { 
 
   let selectedProfileId: string | null = listProfiles()[0]?.id ?? null;
 
-  const buy = (itemId: ItemId): void => {
+  const buy = (itemId: ShopItemId): void => {
     if (!selectedProfileId) {
       return;
     }
@@ -66,6 +71,31 @@ export function mountShopScreen(parent: HTMLElement, props: ShopScreenProps): { 
       },
     });
 
+    render();
+  };
+
+  const buyClass = (classId: ClassId): void => {
+    if (!selectedProfileId) {
+      return;
+    }
+
+    const profile = getProfile(selectedProfileId);
+
+    if (!profile || profile.ownedClasses.includes(classId)) {
+      return;
+    }
+
+    const price = CLASS_PRICES[classId];
+
+    if (profile.currency < price) {
+      return;
+    }
+
+    updateProfile(profile.id, {
+      currency: profile.currency - price,
+      ownedClasses: [...profile.ownedClasses, classId],
+    });
+    props.onBuyClass?.(classId);
     render();
   };
 
@@ -97,7 +127,7 @@ export function mountShopScreen(parent: HTMLElement, props: ShopScreenProps): { 
       profileList.appendChild(button);
     });
 
-    const itemConfigs: Array<{ id: ItemId; title: string; icon: string }> = [
+    const itemConfigs: Array<{ id: ShopItemId; title: string; icon: string }> = [
       { id: 'chocolate', title: 'Шоколадка', icon: '🍫' },
       { id: 'magnifier', title: 'Лупа', icon: '🔍' },
     ];
@@ -132,6 +162,65 @@ export function mountShopScreen(parent: HTMLElement, props: ShopScreenProps): { 
       card.append(info, button);
       items.appendChild(card);
     });
+
+    if (currentProfile) {
+      const classSection = document.createElement('div');
+      classSection.style.cssText = 'margin-top:24px;';
+
+      const classTitle = document.createElement('h3');
+      classTitle.textContent = 'Классы (разовая покупка)';
+      classTitle.style.cssText = 'font-size:18px;margin-bottom:12px;';
+      classSection.appendChild(classTitle);
+
+      for (const classId of ALL_CLASS_IDS) {
+        const owned = currentProfile.ownedClasses.includes(classId);
+        const price = CLASS_PRICES[classId];
+        const canAfford = currentProfile.currency >= price;
+
+        const row = document.createElement('div');
+        row.style.cssText =
+          'display:flex;align-items:center;gap:12px;padding:12px;background:#1a1a2e;border-radius:8px;margin-bottom:8px;';
+
+        const icon = document.createElement('span');
+        icon.textContent = CLASS_ICONS[classId];
+        icon.style.cssText = 'font-size:24px;';
+
+        const text = document.createElement('div');
+        text.style.cssText = 'flex:1;';
+        const name = document.createElement('div');
+        name.textContent = CLASS_NAMES[classId];
+        name.style.cssText = 'font-weight:bold;';
+        const description = document.createElement('div');
+        description.textContent = CLASS_DESCRIPTIONS[classId];
+        description.style.cssText = 'font-size:12px;color:#aaa;';
+        text.append(name, description);
+
+        const button = document.createElement('button');
+        if (owned) {
+          button.textContent = '✓ Куплено';
+          button.disabled = true;
+          button.style.cssText =
+            'background:#2ecc71;color:white;border:none;padding:8px 16px;border-radius:6px;';
+        } else {
+          button.textContent = `${price} ₽`;
+          button.disabled = !canAfford;
+          button.style.cssText = [
+            `background:${canAfford ? '#6c5ce7' : '#444'}`,
+            'color:white',
+            'border:none',
+            'padding:8px 16px',
+            'border-radius:6px',
+            `cursor:${canAfford ? 'pointer' : 'not-allowed'}`,
+          ].join(';');
+          button.onclick = () => buyClass(classId);
+        }
+
+        row.append(icon, text, button);
+        classSection.appendChild(row);
+      }
+
+      items.appendChild(classSection);
+    }
 
     const createButton = document.createElement('button');
     createButton.textContent = 'Создать профиль';
