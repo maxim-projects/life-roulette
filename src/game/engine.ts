@@ -1,4 +1,9 @@
-import { classMaxLives } from './classes';
+import {
+  classMaxLives,
+  classStartingInventory,
+  classStartingLives,
+  initialPlayerForClass,
+} from './classes';
 import { fireBullet, generateChamber } from './chamber';
 import { resolveDamage } from './damage';
 import { createRng } from './rng';
@@ -26,7 +31,9 @@ export function initGame(players: Player[], seed: number): GameState {
   return {
     players: players.map((player) => ({
       ...player,
-      lives: 4,
+      lives: classStartingLives(player.classId),
+      inventory: classStartingInventory(player.classId),
+      classState: initialPlayerForClass(player.classId),
       eliminated: false,
     })),
     currentPlayerIndex: 0,

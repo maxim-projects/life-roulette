@@ -38,6 +38,25 @@ describe('engine.initGame', () => {
 
     expect(() => initGame(eightPlayers, 1)).toThrow();
   });
+
+  it('hydrates class-based lives, inventory and classState', () => {
+    const players = [
+      { ...makePlayer('double', 'Double'), classId: 'double' as const },
+      { ...makePlayer('specops', 'Specops'), classId: 'specops' as const },
+    ];
+
+    const state = initGame(players, 42);
+    const double = state.players.find((player) => player.id === 'double')!;
+    const specops = state.players.find((player) => player.id === 'specops')!;
+
+    expect(double.lives).toBe(5);
+    expect(double.inventory.knife).toBe(1);
+    expect(double.classState.knifeArmed).toBe(false);
+    expect(specops.lives).toBe(4);
+    expect(specops.classState.armorActive).toBe(true);
+    expect(specops.classState.armorChargesLeft).toBe(3);
+    expect(specops.classState.armorRoundsLeft).toBe(3);
+  });
 });
 
 describe('engine.applyAction(spin-roulette)', () => {
