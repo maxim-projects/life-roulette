@@ -3,7 +3,7 @@ import type { MountableHud } from './PassDeviceScreen';
 export interface ActionMenuHudProps {
   canShoot: boolean;
   hint?: string;
-  onShoot?: () => void;
+  onShoot?: (() => void | Promise<void>) | undefined;
 }
 
 export function mountActionMenuHud(
