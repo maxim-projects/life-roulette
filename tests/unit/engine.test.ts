@@ -662,3 +662,136 @@ describe('engine.applyAction(use-item knife)', () => {
     expect(() => applyAction(state, { type: 'use-item', itemId: 'knife' })).toThrow();
   });
 });
+
+describe('engine.applyAction(use-ability lightning)', () => {
+  function setup3pWithClasses(classes: Array<ClassId | null>) {
+    const players = classes.map((classId, index) => ({
+      ...makePlayer(`p${index}`, `P${index}`),
+      classId,
+      classState: initialPlayerForClass(classId),
+      lives: classId === 'double' ? 5 : 4,
+      inventory:
+        classId === 'double'
+          ? { chocolate: 1, magnifier: 1, knife: 1 }
+          : { chocolate: 1, magnifier: 1, knife: 0 },
+    }));
+
+    let state = initGame(players, 42);
+    state = applyAction(state, { type: 'spin-roulette' }).state;
+    state = applyAction(state, { type: 'load-chamber' }).state;
+
+    return state;
+  }
+
+  it('God damages target with lightning (1 dmg)', () => {
+    let state = setup3pWithClasses(['god', null, null]);
+    state.currentPlayerIndex = 0;
+    state.phase = 'turn-item';
+
+    const result = applyAction(state, {
+      type: 'use-ability',
+      ability: 'lightning',
+      targetId: 'p1',
+    });
+
+    expect(result.state.players[1]!.lives).toBe(3);
+    expect(result.state.players[0]!.classState.lightningTotalUsed).toBe(1);
+    expect(result.state.players[0]!.classState.lightningUsedThisChamber).toBe(true);
+    expect(result.events.some((event) => event.type === 'lightning-cast')).toBe(true);
+  });
+
+  it('Non-God throws on lightning', () => {
+    let state = setup3pWithClasses([null, null, null]);
+    state.currentPlayerIndex = 0;
+
+    expect(() =>
+      applyAction(state, {
+        type: 'use-ability',
+        ability: 'lightning',
+        targetId: 'p1',
+      }),
+    ).toThrow();
+  });
+
+  it('Cannot lightning self', () => {
+    let state = setup3pWithClasses(['god', null, null]);
+    state.currentPlayerIndex = 0;
+
+    expect(() =>
+      applyAction(state, {
+        type: 'use-ability',
+        ability: 'lightning',
+        targetId: 'p0',
+      }),
+    ).toThrow();
+  });
+
+  it('Lightning blocked by Specops armor (1 → 0.5)', () => {
+    let state = setup3pWithClasses(['god', 'specops', null]);
+    state.currentPlayerIndex = 0;
+
+    const result = applyAction(state, {
+      type: 'use-ability',
+      ability: 'lightning',
+      targetId: 'p1',
+    });
+
+    expect(result.state.players[1]!.lives).toBe(3.5);
+  });
+
+  it('Lightning NOT blocked by Tank (Tank blocks bullets only)', () => {
+    let state = setup3pWithClasses(['god', 'tank', null]);
+    state.currentPlayerIndex = 0;
+
+    const result = applyAction(state, {
+      type: 'use-ability',
+      ability: 'lightning',
+      targetId: 'p1',
+    });
+
+    expect(result.state.players[1]!.lives).toBe(3);
+    expect(result.state.players[1]!.classState.tankBlockUsed).toBe(false);
+  });
+
+  it('Cannot use lightning twice in same chamber', () => {
+    let state = setup3pWithClasses(['god', null, null]);
+    state.currentPlayerIndex = 0;
+    state.players[0]!.classState.lightningUsedThisChamber = true;
+
+    expect(() =>
+      applyAction(state, {
+        type: 'use-ability',
+        ability: 'lightning',
+        targetId: 'p1',
+      }),
+    ).toThrow();
+  });
+
+  it('Cannot use lightning if total limit reached (4)', () => {
+    let state = setup3pWithClasses(['god', null, null]);
+    state.currentPlayerIndex = 0;
+    state.players[0]!.classState.lightningTotalUsed = 4;
+
+    expect(() =>
+      applyAction(state, {
+        type: 'use-ability',
+        ability: 'lightning',
+        targetId: 'p1',
+      }),
+    ).toThrow();
+  });
+
+  it('Lightning does not change phase (shoot still required)', () => {
+    let state = setup3pWithClasses(['god', null, null]);
+    state.currentPlayerIndex = 0;
+    state.phase = 'turn-item';
+
+    const result = applyAction(state, {
+      type: 'use-ability',
+      ability: 'lightning',
+      targetId: 'p1',
+    });
+
+    expect(result.state.phase).toBe('turn-item');
+  });
+});

@@ -183,6 +183,94 @@ export function applyAction(
         events,
       };
     }
+    case 'use-ability': {
+      if (action.ability !== 'lightning') {
+        throw new Error(`Unknown ability: ${String(action.ability)}`);
+      }
+
+      const caster = state.players[state.currentPlayerIndex]!;
+
+      if (caster.classId !== 'god') {
+        throw new Error('Only god can cast lightning');
+      }
+
+      if (caster.classState.lightningUsedThisChamber) {
+        throw new Error('Lightning already used this chamber');
+      }
+
+      if (caster.classState.lightningTotalUsed >= 4) {
+        throw new Error('Lightning total limit reached');
+      }
+
+      const targetIndex = state.players.findIndex((player) => player.id === action.targetId);
+
+      if (targetIndex < 0) {
+        throw new Error(`Target ${action.targetId} not found`);
+      }
+
+      const target = state.players[targetIndex]!;
+
+      if (target.eliminated) {
+        throw new Error('Target eliminated');
+      }
+
+      if (target.id === caster.id) {
+        throw new Error('Cannot cast lightning on self');
+      }
+
+      const damageResult = resolveDamage(target, 1, 'lightning');
+      const finalDamage = damageResult.finalDamage;
+      const newLives = Math.max(target.lives - finalDamage, 0);
+      const eliminated = newLives <= 0;
+      const nextPlayers = [...state.players];
+
+      nextPlayers[targetIndex] = {
+        ...target,
+        lives: newLives,
+        eliminated,
+        classState: damageResult.updatedClassState,
+      };
+      nextPlayers[state.currentPlayerIndex] = {
+        ...caster,
+        classState: {
+          ...caster.classState,
+          lightningUsedThisChamber: true,
+          lightningTotalUsed: caster.classState.lightningTotalUsed + 1,
+        },
+      };
+
+      events.push(...damageResult.events);
+      events.push({
+        type: 'lightning-cast',
+        casterId: caster.id,
+        targetId: target.id,
+        damage: finalDamage,
+      });
+
+      if (finalDamage > 0) {
+        events.push({
+          type: 'lives-changed',
+          playerId: target.id,
+          newLives,
+        });
+      }
+
+      if (eliminated && !target.eliminated) {
+        events.push({
+          type: 'player-eliminated',
+          playerId: target.id,
+        });
+      }
+
+      return {
+        state: {
+          ...state,
+          players: nextPlayers,
+          actionLog: [...state.actionLog, action],
+        },
+        events,
+      };
+    }
     case 'shoot': {
       const shooter = state.players[state.currentPlayerIndex]!;
       const target = state.players.find((player) => player.id === action.targetId);
