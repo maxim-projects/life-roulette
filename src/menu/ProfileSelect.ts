@@ -1,10 +1,11 @@
-import type { ItemId } from '../game/types';
+import type { ClassId, ItemId } from '../game/types';
 import { createProfile, listProfiles } from '../persistence/profiles';
 
 export interface SelectedProfile {
   profileId: string | null;
   name: string;
   inventory: Record<ItemId, number>;
+  ownedClasses: ClassId[];
   currency: number;
 }
 
@@ -19,12 +20,14 @@ function toSelectedProfile(profile: {
   id: string;
   name: string;
   inventory: Record<ItemId, number>;
+  ownedClasses: ClassId[];
   currency: number;
 }): SelectedProfile {
   return {
     profileId: profile.id,
     name: profile.name,
     inventory: profile.inventory,
+    ownedClasses: profile.ownedClasses,
     currency: profile.currency,
   };
 }
@@ -78,7 +81,8 @@ export function mountProfileSelect(
   const createGuest = (): SelectedProfile => ({
     profileId: null,
     name: total === 1 ? 'Гость' : `Гость ${chosen.length + 1}`,
-    inventory: { chocolate: 0, magnifier: 0 },
+    inventory: { chocolate: 0, magnifier: 0, knife: 0 },
+    ownedClasses: [],
     currency: 0,
   });
 

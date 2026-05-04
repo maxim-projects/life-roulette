@@ -38,7 +38,7 @@ const dummyState: GameState = {
   rngSeed: 1,
   rngState: 1,
   extraTurnsUsedThisChamber: {},
-  itemsUsedThisTurn: { chocolate: false, magnifier: false },
+  itemsUsedThisTurn: { chocolate: false, magnifier: false, knife: false },
   winnerId: null,
   actionLog: [],
 };
