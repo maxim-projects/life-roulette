@@ -117,6 +117,7 @@ export function applyAction(
       };
 
       let nextLives = player.lives;
+      let nextClassState = player.classState;
 
       if (action.itemId === 'chocolate') {
         const heal = player.classId === 'medic' ? 3 : 1;
@@ -132,12 +133,33 @@ export function applyAction(
         }
       }
 
+      if (action.itemId === 'knife') {
+        if (player.classId !== 'double') {
+          throw new Error('Only Double can use knife');
+        }
+
+        if (player.classState.knifeArmed) {
+          throw new Error('Knife already armed');
+        }
+
+        if (player.classState.knifeUsed) {
+          throw new Error('Knife already used this game');
+        }
+
+        nextClassState = {
+          ...nextClassState,
+          knifeArmed: true,
+        };
+        events.push({ type: 'knife-armed', playerId: player.id });
+      }
+
       const nextPlayers = state.players.map((candidate, index) =>
         index === state.currentPlayerIndex
           ? {
               ...candidate,
               inventory: nextInventory,
               lives: nextLives,
+              classState: nextClassState,
             }
           : candidate,
       );

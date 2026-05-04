@@ -614,3 +614,51 @@ describe('engine.applyAction(use-item chocolate) with class', () => {
     expect(result.state.players[0]!.lives).toBe(3);
   });
 });
+
+describe('engine.applyAction(use-item knife)', () => {
+  function setup3pWithClasses(classes: Array<ClassId | null>) {
+    const players = classes.map((classId, index) => ({
+      ...makePlayer(`p${index}`, `P${index}`),
+      classId,
+      classState: initialPlayerForClass(classId),
+      lives: classId === 'double' ? 5 : 4,
+      inventory:
+        classId === 'double'
+          ? { chocolate: 1, magnifier: 1, knife: 1 }
+          : { chocolate: 1, magnifier: 1, knife: 0 },
+    }));
+
+    let state = initGame(players, 42);
+    state = applyAction(state, { type: 'spin-roulette' }).state;
+    state = applyAction(state, { type: 'load-chamber' }).state;
+
+    return state;
+  }
+
+  it('Double can arm knife once: knifeArmed=true, inventory.knife=0', () => {
+    let state = setup3pWithClasses(['double', null, null]);
+    state.currentPlayerIndex = 0;
+
+    const result = applyAction(state, { type: 'use-item', itemId: 'knife' });
+
+    expect(result.state.players[0]!.classState.knifeArmed).toBe(true);
+    expect(result.state.players[0]!.inventory.knife).toBe(0);
+    expect(result.events.some((event) => event.type === 'knife-armed')).toBe(true);
+  });
+
+  it('Non-Double cannot use knife (no knife in inventory)', () => {
+    let state = setup3pWithClasses([null, null, null]);
+    state.currentPlayerIndex = 0;
+
+    expect(() => applyAction(state, { type: 'use-item', itemId: 'knife' })).toThrow();
+  });
+
+  it('Cannot arm knife twice (already armed → throws)', () => {
+    let state = setup3pWithClasses(['double', null, null]);
+    state.currentPlayerIndex = 0;
+    state.players[0]!.classState.knifeArmed = true;
+    state.players[0]!.inventory.knife = 0;
+
+    expect(() => applyAction(state, { type: 'use-item', itemId: 'knife' })).toThrow();
+  });
+});
