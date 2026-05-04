@@ -35,7 +35,7 @@ export function initGame(players: Player[], seed: number): GameState {
     rngSeed: seed,
     rngState: seed >>> 0,
     extraTurnsUsedThisChamber: {},
-    itemsUsedThisTurn: { chocolate: false, magnifier: false },
+    itemsUsedThisTurn: { chocolate: false, magnifier: false, knife: false },
     winnerId: null,
     actionLog: [],
   };
@@ -79,6 +79,26 @@ export function applyAction(
     }
     case 'load-chamber': {
       const chamber = generateChamber(rng);
+      const players = state.players.map((player) => {
+        const classState = {
+          ...player.classState,
+          lightningUsedThisChamber: false,
+        };
+
+        if (player.classId === 'specops' && classState.armorActive) {
+          classState.armorRoundsLeft -= 1;
+
+          if (classState.armorRoundsLeft <= 0) {
+            classState.armorActive = false;
+            events.push({ type: 'armor-broke', playerId: player.id });
+          }
+        }
+
+        return {
+          ...player,
+          classState,
+        };
+      });
 
       events.push({
         type: 'chamber-loaded',
@@ -90,10 +110,11 @@ export function applyAction(
         state: {
           ...state,
           chamber,
+          players,
           phase: 'turn-item',
           rngState: rng.toState(),
           extraTurnsUsedThisChamber: {},
-          itemsUsedThisTurn: { chocolate: false, magnifier: false },
+          itemsUsedThisTurn: { chocolate: false, magnifier: false, knife: false },
           actionLog: [...state.actionLog, action],
         },
         events,
@@ -402,7 +423,7 @@ export function applyAction(
       // monopolize the chamber.
       const turnPasses = !grantsExtraTurn || capHit;
       const nextItemsUsedThisTurn = turnPasses
-        ? { chocolate: false, magnifier: false }
+        ? { chocolate: false, magnifier: false, knife: false }
         : state.itemsUsedThisTurn;
 
       return {

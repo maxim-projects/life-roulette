@@ -123,7 +123,7 @@ describe('engine.applyAction(load-chamber)', () => {
     state = {
       ...state,
       extraTurnsUsedThisChamber: { a: 1 },
-      itemsUsedThisTurn: { chocolate: true, magnifier: false },
+      itemsUsedThisTurn: { chocolate: true, magnifier: false, knife: false },
     };
     state = applyAction(state, { type: 'spin-roulette' }).state;
 
@@ -133,6 +133,7 @@ describe('engine.applyAction(load-chamber)', () => {
     expect(result.state.itemsUsedThisTurn).toEqual({
       chocolate: false,
       magnifier: false,
+      knife: false,
     });
   });
 });
@@ -152,7 +153,7 @@ describe('engine.applyAction(use-item)', () => {
     state.players[currentIndex] = {
       ...state.players[currentIndex]!,
       lives: 2,
-      inventory: { chocolate: 1, magnifier: 1 },
+      inventory: { chocolate: 1, magnifier: 1, knife: 0 },
     };
 
     const result = applyAction(state, { type: 'use-item', itemId: 'chocolate' });
@@ -167,7 +168,7 @@ describe('engine.applyAction(use-item)', () => {
     state.players[currentIndex] = {
       ...state.players[currentIndex]!,
       lives: 4,
-      inventory: { chocolate: 1, magnifier: 1 },
+      inventory: { chocolate: 1, magnifier: 1, knife: 0 },
     };
 
     const result = applyAction(state, { type: 'use-item', itemId: 'chocolate' });
@@ -180,7 +181,7 @@ describe('engine.applyAction(use-item)', () => {
     const currentIndex = state.currentPlayerIndex;
     state.players[currentIndex] = {
       ...state.players[currentIndex]!,
-      inventory: { chocolate: 0, magnifier: 0 },
+      inventory: { chocolate: 0, magnifier: 0, knife: 0 },
     };
 
     expect(() => applyAction(state, { type: 'use-item', itemId: 'chocolate' })).toThrow();
@@ -190,7 +191,7 @@ describe('engine.applyAction(use-item)', () => {
     let state = setupTurn();
     state = {
       ...state,
-      itemsUsedThisTurn: { chocolate: true, magnifier: false },
+      itemsUsedThisTurn: { chocolate: true, magnifier: false, knife: false },
     };
 
     expect(() => applyAction(state, { type: 'use-item', itemId: 'chocolate' })).toThrow();
@@ -201,7 +202,7 @@ describe('engine.applyAction(use-item)', () => {
     const currentIndex = state.currentPlayerIndex;
     state.players[currentIndex] = {
       ...state.players[currentIndex]!,
-      inventory: { chocolate: 1, magnifier: 1 },
+      inventory: { chocolate: 1, magnifier: 1, knife: 0 },
     };
 
     const result = applyAction(state, { type: 'use-item', itemId: 'magnifier' });
@@ -397,7 +398,7 @@ describe('engine.applyAction(shoot)', () => {
     const shooterIndex = state.currentPlayerIndex;
     state = {
       ...state,
-      itemsUsedThisTurn: { chocolate: true, magnifier: true },
+      itemsUsedThisTurn: { chocolate: true, magnifier: true, knife: false },
     };
     state = withChamber(state, ['live', 'blank']);
 
@@ -409,6 +410,7 @@ describe('engine.applyAction(shoot)', () => {
     expect(result.state.itemsUsedThisTurn).toEqual({
       chocolate: false,
       magnifier: false,
+      knife: false,
     });
   });
 
@@ -417,7 +419,7 @@ describe('engine.applyAction(shoot)', () => {
     const shooterIndex = state.currentPlayerIndex;
     state = {
       ...state,
-      itemsUsedThisTurn: { chocolate: false, magnifier: true },
+      itemsUsedThisTurn: { chocolate: false, magnifier: true, knife: false },
     };
     state = withChamber(state, ['blank', 'live']);
 
@@ -429,6 +431,7 @@ describe('engine.applyAction(shoot)', () => {
     expect(result.state.currentPlayerIndex).toBe(shooterIndex);
     expect(result.state.itemsUsedThisTurn.magnifier).toBe(true);
     expect(result.state.itemsUsedThisTurn.chocolate).toBe(false);
+    expect(result.state.itemsUsedThisTurn.knife).toBe(false);
   });
 
   it('RESETS itemsUsedThisTurn when extra-turn cap hit (turn passes)', () => {
@@ -437,7 +440,7 @@ describe('engine.applyAction(shoot)', () => {
     const shooterId = state.players[shooterIndex]!.id;
     state = {
       ...state,
-      itemsUsedThisTurn: { chocolate: true, magnifier: true },
+      itemsUsedThisTurn: { chocolate: true, magnifier: true, knife: false },
       extraTurnsUsedThisChamber: { [shooterId]: 1 },
     };
     state = withChamber(state, ['blank', 'live']);
@@ -451,6 +454,7 @@ describe('engine.applyAction(shoot)', () => {
     expect(result.state.itemsUsedThisTurn).toEqual({
       chocolate: false,
       magnifier: false,
+      knife: false,
     });
   });
 });
@@ -793,5 +797,68 @@ describe('engine.applyAction(use-ability lightning)', () => {
     });
 
     expect(result.state.phase).toBe('turn-item');
+  });
+});
+
+describe('engine.applyAction(load-chamber) resets per-chamber class state', () => {
+  function setup3pWithClasses(classes: Array<ClassId | null>) {
+    const players = classes.map((classId, index) => ({
+      ...makePlayer(`p${index}`, `P${index}`),
+      classId,
+      classState: initialPlayerForClass(classId),
+      lives: classId === 'double' ? 5 : 4,
+      inventory:
+        classId === 'double'
+          ? { chocolate: 1, magnifier: 1, knife: 1 }
+          : { chocolate: 1, magnifier: 1, knife: 0 },
+    }));
+
+    let state = initGame(players, 42);
+    state = applyAction(state, { type: 'spin-roulette' }).state;
+    state = applyAction(state, { type: 'load-chamber' }).state;
+
+    return state;
+  }
+
+  it('God lightning per-chamber resets to false on new chamber', () => {
+    let state = setup3pWithClasses(['god', null, null]);
+    state.currentPlayerIndex = 0;
+    state.players[0]!.classState.lightningUsedThisChamber = true;
+    state.phase = 'between-rounds';
+    state = applyAction(state, { type: 'spin-roulette' }).state;
+
+    const result = applyAction(state, { type: 'load-chamber' });
+    const god = result.state.players.find((player) => player.classId === 'god')!;
+
+    expect(god.classState.lightningUsedThisChamber).toBe(false);
+  });
+
+  it('Specops armor decrements armorRoundsLeft on load-chamber', () => {
+    let state = setup3pWithClasses(['specops', null, null]);
+    state.phase = 'between-rounds';
+    state = applyAction(state, { type: 'spin-roulette' }).state;
+
+    const result = applyAction(state, { type: 'load-chamber' });
+    const specops = result.state.players.find((player) => player.classId === 'specops')!;
+
+    expect(specops.classState.armorRoundsLeft).toBe(1);
+    expect(specops.classState.armorActive).toBe(true);
+  });
+
+  it('Specops armor breaks when armorRoundsLeft reaches 0', () => {
+    let state = setup3pWithClasses(['specops', null, null]);
+    state.players[0]!.classState.armorRoundsLeft = 1;
+    state.phase = 'between-rounds';
+    state = applyAction(state, { type: 'spin-roulette' }).state;
+
+    const result = applyAction(state, { type: 'load-chamber' });
+    const specops = result.state.players.find((player) => player.classId === 'specops')!;
+
+    expect(specops.classState.armorActive).toBe(false);
+    expect(
+      result.events.some(
+        (event) => event.type === 'armor-broke' && (event as { playerId: string }).playerId === 'p0',
+      ),
+    ).toBe(true);
   });
 });
