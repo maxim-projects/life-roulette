@@ -109,48 +109,42 @@ export class OfflineGameController {
 
   private wireHudCallbacks(): void {
     this.huds.itemBar.update({
-      inventory: { chocolate: 0, magnifier: 0 },
-      itemsUsed: { chocolate: false, magnifier: false },
+      inventory: { chocolate: 0, magnifier: 0, knife: 0 },
+      itemsUsed: { chocolate: false, magnifier: false, knife: false },
+      player: null,
       onUseItem: (itemId) => {
         if (!this.awaitingHuman || !this.humanResolver) {
           return;
         }
         this.resolveHumanAction({ type: 'use-item', itemId });
       },
+      onKnifeArm: () => {
+        if (!this.awaitingHuman || !this.humanResolver) {
+          return;
+        }
+
+        this.resolveHumanAction({ type: 'use-item', itemId: 'knife' });
+      },
+      onLightningRequest: async () => {
+        await this.requestTargetAction({
+          confirmText: 'Молния',
+          excludeCurrentPlayer: true,
+          buildAction: (targetId) => ({
+            type: 'use-ability',
+            ability: 'lightning',
+            targetId,
+          }),
+        });
+      },
     });
 
     this.huds.actionMenu.update({
       canShoot: false,
       onShoot: async () => {
-        if (!this.awaitingHuman || !this.humanResolver) {
-          return;
-        }
-
-        const currentPlayer = this.state.players[this.state.currentPlayerIndex];
-        if (!currentPlayer) {
-          return;
-        }
-
-        const eligibleTargets = this.state.players
-          .filter((player) => !player.eliminated)
-          .map((player) => player.id);
-        const targetId = await this.scene.requestTargetSelection(eligibleTargets);
-        const target = this.state.players.find((player) => player.id === targetId);
-
-        if (!target) {
-          return;
-        }
-
-        await new Promise<void>((resolve) => {
-          showConfirmDialog(this.root, {
-            message: `Стрелять в ${target.name}?`,
-            confirmText: 'Стрелять',
-            onConfirm: () => {
-              this.resolveHumanAction({ type: 'shoot', targetId });
-              resolve();
-            },
-            onCancel: () => resolve(),
-          });
+        await this.requestTargetAction({
+          confirmText: 'Стрелять',
+          excludeCurrentPlayer: false,
+          buildAction: (targetId) => ({ type: 'shoot', targetId }),
         });
       },
     });
@@ -310,36 +304,59 @@ export class OfflineGameController {
     resolve(action);
   }
 
+  private async requestTargetAction(options: {
+    confirmText: string;
+    excludeCurrentPlayer: boolean;
+    buildAction: (targetId: string) => Action;
+  }): Promise<void> {
+    if (!this.awaitingHuman || !this.humanResolver) {
+      return;
+    }
+
+    const currentPlayer = this.state.players[this.state.currentPlayerIndex];
+
+    if (!currentPlayer) {
+      return;
+    }
+
+    const eligibleTargets = this.state.players
+      .filter((player) => !player.eliminated)
+      .filter((player) => !options.excludeCurrentPlayer || player.id !== currentPlayer.id)
+      .map((player) => player.id);
+
+    if (eligibleTargets.length === 0) {
+      return;
+    }
+
+    const targetId = await this.scene.requestTargetSelection(eligibleTargets);
+    const target = this.state.players.find((player) => player.id === targetId);
+
+    if (!target) {
+      return;
+    }
+
+    await new Promise<void>((resolve) => {
+      showConfirmDialog(this.root, {
+        message: `${options.confirmText} в ${target.name}?`,
+        confirmText: options.confirmText,
+        onConfirm: () => {
+          this.resolveHumanAction(options.buildAction(targetId));
+          resolve();
+        },
+        onCancel: () => resolve(),
+      });
+    });
+  }
+
   private render(): void {
     const currentPlayer = this.state.players[this.state.currentPlayerIndex] ?? null;
     const onShoot =
       currentPlayer && !currentPlayer.isBot
         ? async () => {
-            if (!this.awaitingHuman || !this.humanResolver) {
-              return;
-            }
-
-            const targetId = await this.scene.requestTargetSelection(
-              this.state.players
-                .filter((player) => !player.eliminated)
-                .map((player) => player.id),
-            );
-            const target = this.state.players.find((player) => player.id === targetId);
-
-            if (!target) {
-              return;
-            }
-
-            await new Promise<void>((resolve) => {
-              showConfirmDialog(this.root, {
-                message: `Стрелять в ${target.name}?`,
-                confirmText: 'Стрелять',
-                onConfirm: () => {
-                  this.resolveHumanAction({ type: 'shoot', targetId });
-                  resolve();
-                },
-                onCancel: () => resolve(),
-              });
+            await this.requestTargetAction({
+              confirmText: 'Стрелять',
+              excludeCurrentPlayer: false,
+              buildAction: (targetId) => ({ type: 'shoot', targetId }),
             });
           }
         : undefined;
@@ -355,13 +372,36 @@ export class OfflineGameController {
     });
 
     this.huds.itemBar.update({
-      inventory: currentPlayer?.inventory ?? { chocolate: 0, magnifier: 0 },
+      inventory: currentPlayer?.inventory ?? { chocolate: 0, magnifier: 0, knife: 0 },
       itemsUsed: this.state.itemsUsedThisTurn,
+      player: currentPlayer,
       onUseItem: (itemId) => {
         if (!this.awaitingHuman || !this.humanResolver || currentPlayer?.isBot) {
           return;
         }
         this.resolveHumanAction({ type: 'use-item', itemId });
+      },
+      onKnifeArm: () => {
+        if (!this.awaitingHuman || !this.humanResolver || currentPlayer?.isBot) {
+          return;
+        }
+
+        this.resolveHumanAction({ type: 'use-item', itemId: 'knife' });
+      },
+      onLightningRequest: async () => {
+        if (currentPlayer?.isBot) {
+          return;
+        }
+
+        await this.requestTargetAction({
+          confirmText: 'Молния',
+          excludeCurrentPlayer: true,
+          buildAction: (targetId) => ({
+            type: 'use-ability',
+            ability: 'lightning',
+            targetId,
+          }),
+        });
       },
     });
 

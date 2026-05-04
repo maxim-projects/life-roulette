@@ -1,10 +1,13 @@
+import { defaultClassState, ALL_CLASS_IDS } from '../game/classes';
 import { initGame } from '../game/engine';
-import type { Player } from '../game/types';
+import { createRng } from '../game/rng';
+import type { ClassId, Player } from '../game/types';
 import { mountActionMenuHud } from '../hud/ActionMenuHud';
 import { mountBulletCounterHud } from '../hud/BulletCounterHud';
 import { mountItemBarHud } from '../hud/ItemBarHud';
 import { mountLoadingScreen } from '../hud/LoadingScreen';
 import { mountPlayerListHud } from '../hud/PlayerListHud';
+import { mountClassSelectScreen } from '../menu/ClassSelectScreen';
 import type { SelectedProfile } from '../menu/ProfileSelect';
 import { loadSceneAssets } from '../scene/assets';
 import { TableScene } from '../scene/TableScene';
@@ -32,7 +35,33 @@ function createGameShell(root: HTMLElement): {
   return { canvas, top, bottom };
 }
 
-function createHumanPlayer(id: string, selection: SelectedProfile): Player {
+async function selectClassForProfile(
+  parent: HTMLElement,
+  profile: SelectedProfile,
+): Promise<ClassId | null> {
+  return new Promise((resolve) => {
+    const screen = mountClassSelectScreen(parent, {
+      playerName: profile.name,
+      ownedClasses: profile.ownedClasses,
+      onSelected: (classId) => {
+        screen.unmount();
+        resolve(classId);
+      },
+    });
+  });
+}
+
+function randomBotClass(): ClassId | null {
+  const rng = createRng(Date.now());
+
+  if (rng.next() < 0.5) {
+    return null;
+  }
+
+  return ALL_CLASS_IDS[rng.intRange(0, ALL_CLASS_IDS.length - 1)] ?? null;
+}
+
+function createHumanPlayer(id: string, selection: SelectedProfile, classId: ClassId | null): Player {
   return {
     id,
     name: selection.name,
@@ -41,21 +70,26 @@ function createHumanPlayer(id: string, selection: SelectedProfile): Player {
     inventory: {
       chocolate: 1 + selection.inventory.chocolate,
       magnifier: 1 + selection.inventory.magnifier,
+      knife: 0,
     },
     isBot: false,
     eliminated: false,
+    classId,
+    classState: defaultClassState(),
   };
 }
 
-function createBotPlayer(): Player {
+function createBotPlayer(classId: ClassId | null): Player {
   return {
     id: 'bot',
     name: 'Bot',
     profileId: null,
     lives: 4,
-    inventory: { chocolate: 1, magnifier: 1 },
+    inventory: { chocolate: 1, magnifier: 1, knife: 0 },
     isBot: true,
     eliminated: false,
+    classId,
+    classState: defaultClassState(),
   };
 }
 
@@ -97,8 +131,9 @@ async function startGame(
     blankCount: 0,
   });
   const itemBar = mountItemBarHud(shell.bottom, {
-    inventory: { chocolate: 0, magnifier: 0 },
-    itemsUsed: { chocolate: false, magnifier: false },
+    inventory: { chocolate: 0, magnifier: 0, knife: 0 },
+    itemsUsed: { chocolate: false, magnifier: false, knife: false },
+    player: null,
   });
   const actionMenu = mountActionMenuHud(shell.bottom, {
     canShoot: false,
@@ -126,19 +161,22 @@ export function startGameVsAI(
   profile: SelectedProfile,
   onExit: () => void,
 ): Promise<void> {
-  const human = createHumanPlayer('human', profile);
-  const bot = createBotPlayer();
+  return (async () => {
+    const humanClassId = await selectClassForProfile(root, profile);
+    const human = createHumanPlayer('human', profile, humanClassId);
+    const bot = createBotPlayer(randomBotClass());
 
-  return startGame(
-    root,
-    [human, bot],
-    'vs-ai',
-    new Map<string, string | null>([
-      [human.id, profile.profileId],
-      [bot.id, null],
-    ]),
-    onExit,
-  );
+    await startGame(
+      root,
+      [human, bot],
+      'vs-ai',
+      new Map<string, string | null>([
+        [human.id, profile.profileId],
+        [bot.id, null],
+      ]),
+      onExit,
+    );
+  })();
 }
 
 export function startGameHotSeat(
@@ -146,12 +184,17 @@ export function startGameHotSeat(
   profiles: SelectedProfile[],
   onExit: () => void,
 ): Promise<void> {
-  const players = profiles.map((profile, index) =>
-    createHumanPlayer(`player-${index + 1}`, profile),
-  );
-  const profileMap = new Map<string, string | null>(
-    players.map((player, index) => [player.id, profiles[index]!.profileId]),
-  );
+  return (async () => {
+    const players: Player[] = [];
+    const profileMap = new Map<string, string | null>();
 
-  return startGame(root, players, 'hot-seat', profileMap, onExit);
+    for (const [index, profile] of profiles.entries()) {
+      const classId = await selectClassForProfile(root, profile);
+      const player = createHumanPlayer(`player-${index + 1}`, profile, classId);
+      players.push(player);
+      profileMap.set(player.id, profile.profileId);
+    }
+
+    await startGame(root, players, 'hot-seat', profileMap, onExit);
+  })();
 }

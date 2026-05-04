@@ -1,10 +1,13 @@
-import type { ItemId } from '../game/types';
+import type { ItemId, Player } from '../game/types';
 import type { MountableHud } from './PassDeviceScreen';
 
 export interface ItemBarHudProps {
   inventory: Record<ItemId, number>;
   itemsUsed: Record<ItemId, boolean>;
+  player?: Player | null;
   onUseItem?: (itemId: ItemId) => void;
+  onKnifeArm?: () => void;
+  onLightningRequest?: () => void;
 }
 
 export function mountItemBarHud(
@@ -18,6 +21,17 @@ export function mountItemBarHud(
   const update = (props: ItemBarHudProps): void => {
     initialProps = props;
     root.replaceChildren();
+    const player = props.player ?? null;
+    const inventory = player?.inventory ?? props.inventory;
+
+    const makeItemButton = (label: string, onClick: () => void): HTMLButtonElement => {
+      const button = document.createElement('button');
+      button.textContent = label;
+      button.style.cssText =
+        'padding:12px 16px;border:none;border-radius:14px;background:#334663;color:#f2f5ff;';
+      button.onclick = onClick;
+      return button;
+    };
 
     const itemConfigs: Array<{ id: ItemId; label: string }> = [
       { id: 'chocolate', label: '🍫 Шоколадка' },
@@ -25,18 +39,47 @@ export function mountItemBarHud(
     ];
 
     itemConfigs.forEach((config) => {
-      const count = props.inventory[config.id] ?? 0;
+      const count = inventory[config.id] ?? 0;
       const used = props.itemsUsed[config.id];
-      const button = document.createElement('button');
-      button.textContent = `${config.label} [${count}]`;
+      const button = makeItemButton(`${config.label} [${count}]`, () => props.onUseItem?.(config.id));
       button.disabled = count <= 0 || used;
       button.style.cssText = [
-        'padding:12px 16px;border:none;border-radius:14px;background:#202a40;color:#f2f5ff;',
+        'padding:12px 16px;border:none;border-radius:14px;color:#f2f5ff;',
         button.disabled ? 'opacity:0.5;' : 'background:#334663;',
       ].join('');
-      button.onclick = () => props.onUseItem?.(config.id);
       root.appendChild(button);
     });
+
+    if (
+      player?.classId === 'double' &&
+      player.inventory.knife > 0 &&
+      !player.classState.knifeArmed
+    ) {
+      root.appendChild(makeItemButton('🔪 Взвести нож', () => props.onKnifeArm?.()));
+    }
+
+    if (player?.classId === 'double' && player.classState.knifeArmed) {
+      const indicator = document.createElement('span');
+      indicator.textContent = '🔪 ВЗВЕДЁН';
+      indicator.style.cssText =
+        'display:flex;align-items:center;padding:12px 16px;border-radius:14px;background:#2b1d1d;color:#ff7b7b;font-weight:700;';
+      root.appendChild(indicator);
+    }
+
+    if (player?.classId === 'god') {
+      const used = player.classState.lightningTotalUsed;
+      const usedThisChamber = player.classState.lightningUsedThisChamber;
+      const button = makeItemButton(`⚡ Молния (${4 - used}/4)`, () => {
+        props.onLightningRequest?.();
+      });
+
+      if (used >= 4 || usedThisChamber) {
+        button.disabled = true;
+        button.style.opacity = '0.5';
+      }
+
+      root.appendChild(button);
+    }
   };
 
   update(initialProps);

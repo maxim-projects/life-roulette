@@ -1,4 +1,11 @@
+import {
+  classMaxLives,
+  classStartingInventory,
+  classStartingLives,
+  initialPlayerForClass,
+} from './classes';
 import { fireBullet, generateChamber } from './chamber';
+import { resolveDamage } from './damage';
 import { createRng } from './rng';
 import type { Action, GameEvent, GameState, Player } from './types';
 
@@ -22,18 +29,28 @@ export function initGame(players: Player[], seed: number): GameState {
   }
 
   return {
-    players: players.map((player) => ({
-      ...player,
-      lives: 4,
-      eliminated: false,
-    })),
+    players: players.map((player) => {
+      const startInventory = classStartingInventory(player.classId);
+
+      return {
+        ...player,
+        lives: classStartingLives(player.classId),
+        inventory: {
+          chocolate: Math.max(player.inventory.chocolate, startInventory.chocolate),
+          magnifier: Math.max(player.inventory.magnifier, startInventory.magnifier),
+          knife: Math.max(player.inventory.knife, startInventory.knife),
+        },
+        classState: initialPlayerForClass(player.classId),
+        eliminated: false,
+      };
+    }),
     currentPlayerIndex: 0,
     chamber: { bullets: [], liveCount: 0, blankCount: 0 },
     phase: 'roulette',
     rngSeed: seed,
     rngState: seed >>> 0,
     extraTurnsUsedThisChamber: {},
-    itemsUsedThisTurn: { chocolate: false, magnifier: false },
+    itemsUsedThisTurn: { chocolate: false, magnifier: false, knife: false },
     winnerId: null,
     actionLog: [],
   };
@@ -77,6 +94,30 @@ export function applyAction(
     }
     case 'load-chamber': {
       const chamber = generateChamber(rng);
+      const players = state.players.map((player) => {
+        let classState = {
+          ...player.classState,
+          lightningUsedThisChamber: false,
+        };
+
+        if (player.classId === 'specops' && classState.armorActive) {
+          const newRounds = classState.armorRoundsLeft - 1;
+          const broke = newRounds <= 0;
+          classState = {
+            ...classState,
+            armorRoundsLeft: newRounds,
+            armorActive: broke ? false : classState.armorActive,
+          };
+          if (broke) {
+            events.push({ type: 'armor-broke', playerId: player.id });
+          }
+        }
+
+        return {
+          ...player,
+          classState,
+        };
+      });
 
       events.push({
         type: 'chamber-loaded',
@@ -88,10 +129,11 @@ export function applyAction(
         state: {
           ...state,
           chamber,
+          players,
           phase: 'turn-item',
           rngState: rng.toState(),
           extraTurnsUsedThisChamber: {},
-          itemsUsedThisTurn: { chocolate: false, magnifier: false },
+          itemsUsedThisTurn: { chocolate: false, magnifier: false, knife: false },
           actionLog: [...state.actionLog, action],
         },
         events,
@@ -115,9 +157,12 @@ export function applyAction(
       };
 
       let nextLives = player.lives;
+      let nextClassState = player.classState;
 
       if (action.itemId === 'chocolate') {
-        nextLives = Math.min(player.lives + 1, 4);
+        const heal = player.classId === 'medic' ? 3 : 1;
+        const maxLives = classMaxLives(player.classId);
+        nextLives = Math.min(player.lives + heal, maxLives);
 
         if (nextLives !== player.lives) {
           events.push({
@@ -128,12 +173,33 @@ export function applyAction(
         }
       }
 
+      if (action.itemId === 'knife') {
+        if (player.classId !== 'double') {
+          throw new Error('Only Double can use knife');
+        }
+
+        if (player.classState.knifeArmed) {
+          throw new Error('Knife already armed');
+        }
+
+        if (player.classState.knifeUsed) {
+          throw new Error('Knife already used this game');
+        }
+
+        nextClassState = {
+          ...nextClassState,
+          knifeArmed: true,
+        };
+        events.push({ type: 'knife-armed', playerId: player.id });
+      }
+
       const nextPlayers = state.players.map((candidate, index) =>
         index === state.currentPlayerIndex
           ? {
               ...candidate,
               inventory: nextInventory,
               lives: nextLives,
+              classState: nextClassState,
             }
           : candidate,
       );
@@ -152,6 +218,94 @@ export function applyAction(
             ...state.itemsUsedThisTurn,
             [action.itemId]: true,
           },
+          actionLog: [...state.actionLog, action],
+        },
+        events,
+      };
+    }
+    case 'use-ability': {
+      if (action.ability !== 'lightning') {
+        throw new Error(`Unknown ability: ${String(action.ability)}`);
+      }
+
+      const caster = state.players[state.currentPlayerIndex]!;
+
+      if (caster.classId !== 'god') {
+        throw new Error('Only god can cast lightning');
+      }
+
+      if (caster.classState.lightningUsedThisChamber) {
+        throw new Error('Lightning already used this chamber');
+      }
+
+      if (caster.classState.lightningTotalUsed >= 4) {
+        throw new Error('Lightning total limit reached');
+      }
+
+      const targetIndex = state.players.findIndex((player) => player.id === action.targetId);
+
+      if (targetIndex < 0) {
+        throw new Error(`Target ${action.targetId} not found`);
+      }
+
+      const target = state.players[targetIndex]!;
+
+      if (target.eliminated) {
+        throw new Error('Target eliminated');
+      }
+
+      if (target.id === caster.id) {
+        throw new Error('Cannot cast lightning on self');
+      }
+
+      const damageResult = resolveDamage(target, 1, 'lightning');
+      const finalDamage = damageResult.finalDamage;
+      const newLives = Math.max(target.lives - finalDamage, 0);
+      const eliminated = newLives <= 0;
+      const nextPlayers = [...state.players];
+
+      nextPlayers[targetIndex] = {
+        ...target,
+        lives: newLives,
+        eliminated,
+        classState: damageResult.updatedClassState,
+      };
+      nextPlayers[state.currentPlayerIndex] = {
+        ...caster,
+        classState: {
+          ...caster.classState,
+          lightningUsedThisChamber: true,
+          lightningTotalUsed: caster.classState.lightningTotalUsed + 1,
+        },
+      };
+
+      events.push(...damageResult.events);
+      events.push({
+        type: 'lightning-cast',
+        casterId: caster.id,
+        targetId: target.id,
+        damage: finalDamage,
+      });
+
+      if (finalDamage > 0) {
+        events.push({
+          type: 'lives-changed',
+          playerId: target.id,
+          newLives,
+        });
+      }
+
+      if (eliminated && !target.eliminated) {
+        events.push({
+          type: 'player-eliminated',
+          playerId: target.id,
+        });
+      }
+
+      return {
+        state: {
+          ...state,
+          players: nextPlayers,
           actionLog: [...state.actionLog, action],
         },
         events,
@@ -186,24 +340,47 @@ export function applyAction(
       let winnerId = state.winnerId;
 
       if (fired.bullet === 'live') {
+        let baseDamage = 1;
+        const shooterIndex = state.currentPlayerIndex;
+
+        if (shooter.classId === 'double' && shooter.classState.knifeArmed) {
+          baseDamage *= 2;
+          players[shooterIndex] = {
+            ...shooter,
+            classState: {
+              ...shooter.classState,
+              knifeArmed: false,
+              knifeUsed: true,
+            },
+          };
+          events.push({ type: 'knife-doubled-damage', playerId: shooter.id });
+        }
+
         const targetIndex = players.findIndex((player) => player.id === target.id);
-        const previousTarget = players[targetIndex]!;
-        const nextLives = Math.max(previousTarget.lives - 1, 0);
+        const targetCurrent = players[targetIndex]!;
+        const damageResult = resolveDamage(targetCurrent, baseDamage, 'bullet');
+        const damage = damageResult.finalDamage;
+        const nextLives = Math.max(targetCurrent.lives - damage, 0);
         const eliminated = nextLives <= 0;
 
+        events.push(...damageResult.events);
+
         players[targetIndex] = {
-          ...previousTarget,
+          ...targetCurrent,
           lives: nextLives,
           eliminated,
+          classState: damageResult.updatedClassState,
         };
 
-        events.push({
-          type: 'lives-changed',
-          playerId: target.id,
-          newLives: nextLives,
-        });
+        if (damage > 0) {
+          events.push({
+            type: 'lives-changed',
+            playerId: target.id,
+            newLives: nextLives,
+          });
+        }
 
-        if (eliminated) {
+        if (eliminated && !targetCurrent.eliminated) {
           events.push({
             type: 'player-eliminated',
             playerId: target.id,
@@ -265,7 +442,7 @@ export function applyAction(
       // monopolize the chamber.
       const turnPasses = !grantsExtraTurn || capHit;
       const nextItemsUsedThisTurn = turnPasses
-        ? { chocolate: false, magnifier: false }
+        ? { chocolate: false, magnifier: false, knife: false }
         : state.itemsUsedThisTurn;
 
       return {

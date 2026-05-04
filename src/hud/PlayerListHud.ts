@@ -1,9 +1,36 @@
+import { classMaxLives } from '../game/classes';
 import type { Player } from '../game/types';
+import { CLASS_ICONS } from '../i18n';
 import type { MountableHud } from './PassDeviceScreen';
 
 export interface PlayerListHudProps {
   players: Player[];
   activePlayerId: string | null;
+}
+
+function renderHearts(lives: number, maxLives: number): HTMLElement {
+  const wrap = document.createElement('span');
+  wrap.style.cssText = 'display:inline-flex;gap:2px;flex-wrap:wrap;';
+  let remaining = lives;
+
+  for (let index = 0; index < maxLives; index += 1) {
+    const heart = document.createElement('span');
+    heart.style.cssText = 'font-size:14px;';
+
+    if (remaining >= 1) {
+      heart.textContent = '❤';
+      remaining -= 1;
+    } else if (remaining === 0.5) {
+      heart.textContent = '💔';
+      remaining = 0;
+    } else {
+      heart.textContent = '🤍';
+    }
+
+    wrap.appendChild(heart);
+  }
+
+  return wrap;
 }
 
 export function mountPlayerListHud(
@@ -34,12 +61,25 @@ export function mountPlayerListHud(
         'width:36px;height:36px;border-radius:50%;background:#25314a;display:flex;align-items:center;justify-content:center;font-weight:700;margin-bottom:8px;';
 
       const name = document.createElement('div');
-      name.textContent = player.name;
-      name.style.cssText = 'font-weight:700;margin-bottom:4px;';
+      name.style.cssText = 'font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:4px;';
+
+      if (player.classId) {
+        const icon = document.createElement('span');
+        icon.textContent = CLASS_ICONS[player.classId] ?? '';
+        icon.style.cssText = 'margin-right:4px;';
+        name.appendChild(icon);
+      }
+
+      const nameLabel = document.createElement('span');
+      nameLabel.textContent = player.name;
+      name.appendChild(nameLabel);
 
       const lives = document.createElement('div');
-      lives.textContent = `Жизни: ${player.lives}`;
-      lives.style.cssText = 'color:#bfd0f5;';
+      lives.style.cssText = 'color:#bfd0f5;display:flex;flex-direction:column;gap:4px;';
+      const livesLabel = document.createElement('span');
+      livesLabel.textContent = `Жизни: ${player.lives}`;
+      const hearts = renderHearts(player.lives, classMaxLives(player.classId));
+      lives.append(livesLabel, hearts);
 
       card.append(initials, name, lives);
       root.appendChild(card);
