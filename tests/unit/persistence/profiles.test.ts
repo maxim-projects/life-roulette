@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import type { ClassId } from '../../../src/game/types';
 import {
   createProfile,
   deleteProfile,
@@ -41,7 +42,7 @@ describe('profiles', () => {
 
     expect(profile.name).toBe('Alice');
     expect(profile.currency).toBe(0);
-    expect(profile.inventory).toEqual({ chocolate: 0, magnifier: 0 });
+    expect(profile.inventory).toEqual({ chocolate: 0, magnifier: 0, knife: 0 });
   });
 
   it('list returns saved profiles', () => {
@@ -56,7 +57,7 @@ describe('profiles', () => {
 
     updateProfile(profile.id, {
       currency: 100,
-      inventory: { chocolate: 2, magnifier: 1 },
+      inventory: { chocolate: 2, magnifier: 1, knife: 0 },
     });
 
     const reloaded = getProfile(profile.id);
@@ -77,5 +78,42 @@ describe('profiles', () => {
     memoryStorage.setItem('life-roulette:profiles', 'broken');
 
     expect(listProfiles()).toEqual([]);
+  });
+});
+
+describe('profiles ownedClasses', () => {
+  it('newly created profile has empty ownedClasses', () => {
+    const profile = createProfile('Alice');
+
+    expect(profile.ownedClasses).toEqual([]);
+  });
+
+  it('updateProfile sets ownedClasses', () => {
+    const profile = createProfile('Alice');
+
+    updateProfile(profile.id, { ownedClasses: ['medic', 'tank'] as ClassId[] });
+
+    expect(getProfile(profile.id)?.ownedClasses).toEqual(['medic', 'tank']);
+  });
+
+  it('migrates legacy profiles (no ownedClasses field) to []', () => {
+    memoryStorage.setItem(
+      'life-roulette:profiles',
+      JSON.stringify([
+        {
+          id: 'legacy',
+          name: 'L',
+          currency: 100,
+          inventory: { chocolate: 0, magnifier: 0 },
+          createdAt: 1,
+          lastUsed: 1,
+        },
+      ]),
+    );
+
+    const profiles = listProfiles();
+
+    expect(profiles).toHaveLength(1);
+    expect(profiles[0]!.ownedClasses).toEqual([]);
   });
 });

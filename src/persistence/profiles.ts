@@ -1,4 +1,4 @@
-import type { ItemId } from '../game/types';
+import type { ClassId, ItemId } from '../game/types';
 import { STORAGE_KEYS } from './schema';
 
 export interface PlayerProfile {
@@ -6,6 +6,7 @@ export interface PlayerProfile {
   name: string;
   currency: number;
   inventory: Record<ItemId, number>;
+  ownedClasses: ClassId[];
   createdAt: number;
   lastUsed: number;
 }
@@ -24,7 +25,10 @@ function readAll(): PlayerProfile[] {
       return [];
     }
 
-    return parsed as PlayerProfile[];
+    return parsed.map((profile: PlayerProfile & { ownedClasses?: ClassId[] }) => ({
+      ...profile,
+      ownedClasses: profile.ownedClasses ?? [],
+    }));
   } catch {
     return [];
   }
@@ -56,7 +60,8 @@ export function createProfile(name: string): PlayerProfile {
     id: generateId(),
     name,
     currency: 0,
-    inventory: { chocolate: 0, magnifier: 0 },
+    inventory: { chocolate: 0, magnifier: 0, knife: 0 },
+    ownedClasses: [],
     createdAt: now,
     lastUsed: now,
   };
