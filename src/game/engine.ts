@@ -1,3 +1,4 @@
+import { classMaxLives } from './classes';
 import { fireBullet, generateChamber } from './chamber';
 import { resolveDamage } from './damage';
 import { createRng } from './rng';
@@ -118,7 +119,9 @@ export function applyAction(
       let nextLives = player.lives;
 
       if (action.itemId === 'chocolate') {
-        nextLives = Math.min(player.lives + 1, 4);
+        const heal = player.classId === 'medic' ? 3 : 1;
+        const maxLives = classMaxLives(player.classId);
+        nextLives = Math.min(player.lives + heal, maxLives);
 
         if (nextLives !== player.lives) {
           events.push({

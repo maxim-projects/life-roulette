@@ -542,3 +542,75 @@ describe('engine.applyAction(shoot) with classes', () => {
     expect(result.state.players[1]!.lives).toBe(3);
   });
 });
+
+describe('engine.applyAction(use-item chocolate) with class', () => {
+  function setup3pWithClasses(classes: Array<ClassId | null>) {
+    const players = classes.map((classId, index) => ({
+      ...makePlayer(`p${index}`, `P${index}`),
+      classId,
+      classState: initialPlayerForClass(classId),
+      lives: classId === 'double' ? 5 : 4,
+    }));
+
+    let state = initGame(players, 42);
+    state = applyAction(state, { type: 'spin-roulette' }).state;
+    state = applyAction(state, { type: 'load-chamber' }).state;
+
+    return state;
+  }
+
+  it('Medic chocolate heals +3 (lives 1 → 4)', () => {
+    let state = setup3pWithClasses(['medic', null, null]);
+    state.currentPlayerIndex = 0;
+    state.players[0] = {
+      ...state.players[0]!,
+      lives: 1,
+      inventory: { chocolate: 1, magnifier: 1, knife: 0 },
+    };
+
+    const result = applyAction(state, { type: 'use-item', itemId: 'chocolate' });
+
+    expect(result.state.players[0]!.lives).toBe(4);
+  });
+
+  it('Medic chocolate caps at 4 (lives 3 + 3 = capped 4)', () => {
+    let state = setup3pWithClasses(['medic', null, null]);
+    state.currentPlayerIndex = 0;
+    state.players[0] = {
+      ...state.players[0]!,
+      lives: 3,
+      inventory: { chocolate: 1, magnifier: 1, knife: 0 },
+    };
+
+    const result = applyAction(state, { type: 'use-item', itemId: 'chocolate' });
+
+    expect(result.state.players[0]!.lives).toBe(4);
+  });
+
+  it('Double has cap 5 (lives 5 → chocolate at 4 → 5)', () => {
+    let state = setup3pWithClasses(['double', null, null]);
+    state.currentPlayerIndex = 0;
+    state.players[0] = {
+      ...state.players[0]!,
+      lives: 4,
+      inventory: { chocolate: 1, magnifier: 1, knife: 1 },
+    };
+
+    const result = applyAction(state, { type: 'use-item', itemId: 'chocolate' });
+
+    expect(result.state.players[0]!.lives).toBe(5);
+  });
+
+  it('Classless chocolate heals +1 (lives 2 → 3)', () => {
+    let state = setup3pWithClasses([null, null, null]);
+    state.currentPlayerIndex = 0;
+    state.players[0] = {
+      ...state.players[0]!,
+      lives: 2,
+    };
+
+    const result = applyAction(state, { type: 'use-item', itemId: 'chocolate' });
+
+    expect(result.state.players[0]!.lives).toBe(3);
+  });
+});
