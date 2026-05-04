@@ -172,3 +172,39 @@ describe('botDecide for God class', () => {
     expect(action).toEqual({ type: 'use-item', itemId: 'magnifier' });
   });
 });
+
+describe('botDecide for Double class', () => {
+  it('Double sees peeked=live + has knife + weak enemy → arm knife', () => {
+    const view = makeView({
+      selfLives: 5,
+      selfInventory: { chocolate: 1, magnifier: 1, knife: 1 },
+      selfClassId: 'double',
+      selfClassState: { ...defaultClassState() },
+      otherPlayers: [{ id: 'h', name: 'H', lives: 2, eliminated: false, classId: null }],
+    });
+
+    const action = botDecide(view, createRng(1), {
+      magnifierUsedThisTurn: true,
+      peekedNextBullet: 'live',
+    });
+
+    expect(action).toEqual({ type: 'use-item', itemId: 'knife' });
+  });
+
+  it('Double without knife in inventory falls through', () => {
+    const view = makeView({
+      selfLives: 5,
+      selfInventory: { chocolate: 1, magnifier: 1, knife: 0 },
+      selfClassId: 'double',
+      selfClassState: { ...defaultClassState(), knifeUsed: true },
+      otherPlayers: [{ id: 'h', name: 'H', lives: 2, eliminated: false, classId: null }],
+    });
+
+    const action = botDecide(view, createRng(1), {
+      magnifierUsedThisTurn: true,
+      peekedNextBullet: 'live',
+    });
+
+    expect(action).toEqual({ type: 'shoot', targetId: 'h' });
+  });
+});

@@ -39,6 +39,17 @@ export function botDecide(view: PlayerView, _rng: Rng, context: BotContext): Act
   }
 
   if (
+    me.classId === 'double' &&
+    me.inventory.knife > 0 &&
+    !me.classState.knifeArmed &&
+    !me.classState.knifeUsed &&
+    context.peekedNextBullet === 'live' &&
+    aliveEnemies.some((player) => player.lives <= 2)
+  ) {
+    return { type: 'use-item', itemId: 'knife' };
+  }
+
+  if (
     me.lives <= 1 &&
     me.inventory.chocolate > 0 &&
     !context.chocolateUsedThisTurn
