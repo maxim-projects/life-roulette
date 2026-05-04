@@ -133,3 +133,77 @@ describe('engine.applyAction(load-chamber)', () => {
     });
   });
 });
+
+describe('engine.applyAction(use-item)', () => {
+  function setupTurn() {
+    const players = [makePlayer('a', 'A'), makePlayer('b', 'B')];
+    let state = initGame(players, 42);
+    state = applyAction(state, { type: 'spin-roulette' }).state;
+    state = applyAction(state, { type: 'load-chamber' }).state;
+    return state;
+  }
+
+  it('chocolate heals and decreases inventory', () => {
+    let state = setupTurn();
+    const currentIndex = state.currentPlayerIndex;
+    state.players[currentIndex] = {
+      ...state.players[currentIndex]!,
+      lives: 2,
+      inventory: { chocolate: 1, magnifier: 1 },
+    };
+
+    const result = applyAction(state, { type: 'use-item', itemId: 'chocolate' });
+
+    expect(result.state.players[currentIndex]?.lives).toBe(3);
+    expect(result.state.players[currentIndex]?.inventory.chocolate).toBe(0);
+  });
+
+  it('chocolate caps at four lives', () => {
+    let state = setupTurn();
+    const currentIndex = state.currentPlayerIndex;
+    state.players[currentIndex] = {
+      ...state.players[currentIndex]!,
+      lives: 4,
+      inventory: { chocolate: 1, magnifier: 1 },
+    };
+
+    const result = applyAction(state, { type: 'use-item', itemId: 'chocolate' });
+
+    expect(result.state.players[currentIndex]?.lives).toBe(4);
+  });
+
+  it('throws if player has no item', () => {
+    let state = setupTurn();
+    const currentIndex = state.currentPlayerIndex;
+    state.players[currentIndex] = {
+      ...state.players[currentIndex]!,
+      inventory: { chocolate: 0, magnifier: 0 },
+    };
+
+    expect(() => applyAction(state, { type: 'use-item', itemId: 'chocolate' })).toThrow();
+  });
+
+  it('throws if item already used this turn', () => {
+    let state = setupTurn();
+    state = {
+      ...state,
+      itemsUsedThisTurn: { chocolate: true, magnifier: false },
+    };
+
+    expect(() => applyAction(state, { type: 'use-item', itemId: 'chocolate' })).toThrow();
+  });
+
+  it('emits item-used event and marks item as used', () => {
+    let state = setupTurn();
+    const currentIndex = state.currentPlayerIndex;
+    state.players[currentIndex] = {
+      ...state.players[currentIndex]!,
+      inventory: { chocolate: 1, magnifier: 1 },
+    };
+
+    const result = applyAction(state, { type: 'use-item', itemId: 'magnifier' });
+
+    expect(result.events.find((event) => event.type === 'item-used')).toBeDefined();
+    expect(result.state.itemsUsedThisTurn.magnifier).toBe(true);
+  });
+});

@@ -83,6 +83,66 @@ export function applyAction(
         events,
       };
     }
+    case 'use-item': {
+      const player = state.players[state.currentPlayerIndex]!;
+      const itemCount = player.inventory[action.itemId] ?? 0;
+
+      if (itemCount <= 0) {
+        throw new Error(`No ${action.itemId}`);
+      }
+
+      if (state.itemsUsedThisTurn[action.itemId]) {
+        throw new Error(`${action.itemId} already used this turn`);
+      }
+
+      const nextInventory = {
+        ...player.inventory,
+        [action.itemId]: itemCount - 1,
+      };
+
+      let nextLives = player.lives;
+
+      if (action.itemId === 'chocolate') {
+        nextLives = Math.min(player.lives + 1, 4);
+
+        if (nextLives !== player.lives) {
+          events.push({
+            type: 'lives-changed',
+            playerId: player.id,
+            newLives: nextLives,
+          });
+        }
+      }
+
+      const nextPlayers = state.players.map((candidate, index) =>
+        index === state.currentPlayerIndex
+          ? {
+              ...candidate,
+              inventory: nextInventory,
+              lives: nextLives,
+            }
+          : candidate,
+      );
+
+      events.push({
+        type: 'item-used',
+        playerId: player.id,
+        itemId: action.itemId,
+      });
+
+      return {
+        state: {
+          ...state,
+          players: nextPlayers,
+          itemsUsedThisTurn: {
+            ...state.itemsUsedThisTurn,
+            [action.itemId]: true,
+          },
+          actionLog: [...state.actionLog, action],
+        },
+        events,
+      };
+    }
     default:
       throw new Error(`Unsupported action type: ${action.type}`);
   }
