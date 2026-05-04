@@ -89,3 +89,47 @@ describe('engine.applyAction(spin-roulette)', () => {
     expect(result.state.players[result.state.currentPlayerIndex]?.id).not.toBe('a');
   });
 });
+
+describe('engine.applyAction(load-chamber)', () => {
+  it('fills chamber and moves phase to turn-item', () => {
+    const players = [makePlayer('a', 'A'), makePlayer('b', 'B')];
+    let state = initGame(players, 42);
+    state = applyAction(state, { type: 'spin-roulette' }).state;
+
+    const result = applyAction(state, { type: 'load-chamber' });
+
+    expect(result.state.chamber.bullets).toHaveLength(6);
+    expect(result.state.chamber.liveCount + result.state.chamber.blankCount).toBe(6);
+    expect(result.state.phase).toBe('turn-item');
+  });
+
+  it('emits chamber-loaded event', () => {
+    const players = [makePlayer('a', 'A'), makePlayer('b', 'B')];
+    let state = applyAction(initGame(players, 42), { type: 'spin-roulette' }).state;
+
+    const result = applyAction(state, { type: 'load-chamber' });
+
+    expect(
+      result.events.find((event) => event.type === 'chamber-loaded'),
+    ).toBeDefined();
+  });
+
+  it('resets per-chamber tracking', () => {
+    const players = [makePlayer('a', 'A'), makePlayer('b', 'B')];
+    let state = initGame(players, 42);
+    state = {
+      ...state,
+      extraTurnsUsedThisChamber: { a: 1 },
+      itemsUsedThisTurn: { chocolate: true, magnifier: false },
+    };
+    state = applyAction(state, { type: 'spin-roulette' }).state;
+
+    const result = applyAction(state, { type: 'load-chamber' });
+
+    expect(result.state.extraTurnsUsedThisChamber).toEqual({});
+    expect(result.state.itemsUsedThisTurn).toEqual({
+      chocolate: false,
+      magnifier: false,
+    });
+  });
+});

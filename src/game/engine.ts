@@ -1,3 +1,4 @@
+import { generateChamber } from './chamber';
 import { createRng } from './rng';
 import type { Action, GameEvent, GameState, Player } from './types';
 
@@ -55,6 +56,28 @@ export function applyAction(
           currentPlayerIndex: pickedIndex,
           phase: 'loading',
           rngState: rng.toState(),
+          actionLog: [...state.actionLog, action],
+        },
+        events,
+      };
+    }
+    case 'load-chamber': {
+      const chamber = generateChamber(rng);
+
+      events.push({
+        type: 'chamber-loaded',
+        liveCount: chamber.liveCount,
+        blankCount: chamber.blankCount,
+      });
+
+      return {
+        state: {
+          ...state,
+          chamber,
+          phase: 'turn-item',
+          rngState: rng.toState(),
+          extraTurnsUsedThisChamber: {},
+          itemsUsedThisTurn: { chocolate: false, magnifier: false },
           actionLog: [...state.actionLog, action],
         },
         events,
