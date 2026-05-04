@@ -207,3 +207,205 @@ describe('engine.applyAction(use-item)', () => {
     expect(result.state.itemsUsedThisTurn.magnifier).toBe(true);
   });
 });
+
+describe('engine.applyAction(shoot)', () => {
+  function setupThreePlayers(seed = 42) {
+    const players = [
+      makePlayer('a', 'A'),
+      makePlayer('b', 'B'),
+      makePlayer('c', 'C'),
+    ];
+    let state = initGame(players, seed);
+    state = applyAction(state, { type: 'spin-roulette' }).state;
+    state = applyAction(state, { type: 'load-chamber' }).state;
+    return state;
+  }
+
+  function withChamber(state: ReturnType<typeof setupThreePlayers>, bullets: Array<'live' | 'blank'>) {
+    return {
+      ...state,
+      chamber: {
+        bullets: [...bullets],
+        liveCount: bullets.filter((bullet) => bullet === 'live').length,
+        blankCount: bullets.filter((bullet) => bullet === 'blank').length,
+      },
+    };
+  }
+
+  it('self plus blank grants extra turn without life loss', () => {
+    let state = setupThreePlayers();
+    const shooterIndex = state.currentPlayerIndex;
+    state = withChamber(state, ['blank', 'live']);
+
+    const result = applyAction(state, {
+      type: 'shoot',
+      targetId: state.players[shooterIndex]!.id,
+    });
+
+    expect(result.state.players[shooterIndex]?.lives).toBe(4);
+    expect(result.state.currentPlayerIndex).toBe(shooterIndex);
+    expect(result.events.some((event) => event.type === 'extra-turn-granted')).toBe(true);
+  });
+
+  it('self plus live removes life and passes turn', () => {
+    let state = setupThreePlayers();
+    const shooterIndex = state.currentPlayerIndex;
+    state = withChamber(state, ['live', 'blank']);
+
+    const result = applyAction(state, {
+      type: 'shoot',
+      targetId: state.players[shooterIndex]!.id,
+    });
+
+    expect(result.state.players[shooterIndex]?.lives).toBe(3);
+    expect(result.state.currentPlayerIndex).not.toBe(shooterIndex);
+  });
+
+  it('other plus live hurts target and passes turn', () => {
+    let state = setupThreePlayers();
+    const shooterIndex = state.currentPlayerIndex;
+    const targetIndex = (shooterIndex + 1) % 3;
+    state = withChamber(state, ['live', 'blank']);
+
+    const result = applyAction(state, {
+      type: 'shoot',
+      targetId: state.players[targetIndex]!.id,
+    });
+
+    expect(result.state.players[targetIndex]?.lives).toBe(3);
+    expect(result.state.currentPlayerIndex).not.toBe(shooterIndex);
+  });
+
+  it('other plus blank hurts nobody and passes turn', () => {
+    let state = setupThreePlayers();
+    const shooterIndex = state.currentPlayerIndex;
+    const targetIndex = (shooterIndex + 1) % 3;
+    state = withChamber(state, ['blank', 'live']);
+
+    const result = applyAction(state, {
+      type: 'shoot',
+      targetId: state.players[targetIndex]!.id,
+    });
+
+    expect(result.state.players[targetIndex]?.lives).toBe(4);
+    expect(result.state.currentPlayerIndex).not.toBe(shooterIndex);
+  });
+
+  it('second self blank in same chamber hits extra-turn cap', () => {
+    let state = setupThreePlayers();
+    const shooterIndex = state.currentPlayerIndex;
+    state = withChamber(state, ['blank', 'blank', 'live']);
+
+    let result = applyAction(state, {
+      type: 'shoot',
+      targetId: state.players[shooterIndex]!.id,
+    });
+
+    expect(result.state.currentPlayerIndex).toBe(shooterIndex);
+
+    result = applyAction(result.state, {
+      type: 'shoot',
+      targetId: result.state.players[shooterIndex]!.id,
+    });
+
+    expect(result.state.currentPlayerIndex).not.toBe(shooterIndex);
+    expect(result.events.some((event) => event.type === 'extra-turn-cap-hit')).toBe(true);
+  });
+
+  it('marks eliminated player and emits elimination event', () => {
+    let state = setupThreePlayers();
+    const shooterIndex = state.currentPlayerIndex;
+    const targetIndex = (shooterIndex + 1) % 3;
+    state.players[targetIndex] = {
+      ...state.players[targetIndex]!,
+      lives: 1,
+    };
+    state = withChamber(state, ['live']);
+
+    const result = applyAction(state, {
+      type: 'shoot',
+      targetId: state.players[targetIndex]!.id,
+    });
+
+    expect(result.state.players[targetIndex]?.lives).toBe(0);
+    expect(result.state.players[targetIndex]?.eliminated).toBe(true);
+    expect(result.events.some((event) => event.type === 'player-eliminated')).toBe(true);
+  });
+
+  it('moves to between-rounds when chamber becomes empty', () => {
+    let state = setupThreePlayers();
+    const shooterIndex = state.currentPlayerIndex;
+    state = withChamber(state, ['blank']);
+
+    const result = applyAction(state, {
+      type: 'shoot',
+      targetId: state.players[(shooterIndex + 1) % 3]!.id,
+    });
+
+    expect(result.state.chamber.bullets).toHaveLength(0);
+    expect(result.state.phase).toBe('between-rounds');
+  });
+
+  it('ends game when only one alive player remains', () => {
+    let state = setupThreePlayers();
+    const shooterIndex = state.currentPlayerIndex;
+    const shooterId = state.players[shooterIndex]!.id;
+    const secondId = state.players[(shooterIndex + 1) % 3]!.id;
+    const thirdId = state.players[(shooterIndex + 2) % 3]!.id;
+    state.players = state.players.map((player) =>
+      player.id === secondId
+        ? { ...player, lives: 1 }
+        : player.id === thirdId
+          ? { ...player, lives: 0, eliminated: true }
+          : player,
+    );
+    state = withChamber(state, ['live']);
+
+    const result = applyAction(state, {
+      type: 'shoot',
+      targetId: secondId,
+    });
+
+    expect(result.state.phase).toBe('game-over');
+    expect(result.state.winnerId).toBe(shooterId);
+  });
+
+  it('throws when target is eliminated', () => {
+    let state = setupThreePlayers();
+    const shooterIndex = state.currentPlayerIndex;
+    const targetIndex = (shooterIndex + 1) % 3;
+    state.players[targetIndex] = {
+      ...state.players[targetIndex]!,
+      lives: 0,
+      eliminated: true,
+    };
+    state = withChamber(state, ['live']);
+
+    expect(() =>
+      applyAction(state, {
+        type: 'shoot',
+        targetId: state.players[targetIndex]!.id,
+      }),
+    ).toThrow();
+  });
+
+  it('resets itemsUsedThisTurn after shot', () => {
+    let state = setupThreePlayers();
+    const shooterIndex = state.currentPlayerIndex;
+    state = {
+      ...state,
+      itemsUsedThisTurn: { chocolate: true, magnifier: true },
+    };
+    state = withChamber(state, ['live', 'blank']);
+
+    const result = applyAction(state, {
+      type: 'shoot',
+      targetId: state.players[(shooterIndex + 1) % 3]!.id,
+    });
+
+    expect(result.state.itemsUsedThisTurn).toEqual({
+      chocolate: false,
+      magnifier: false,
+    });
+  });
+});

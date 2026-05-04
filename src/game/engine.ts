@@ -1,6 +1,20 @@
-import { generateChamber } from './chamber';
+import { fireBullet, generateChamber } from './chamber';
 import { createRng } from './rng';
 import type { Action, GameEvent, GameState, Player } from './types';
+
+function nextAliveIndex(players: Player[], fromIndex: number): number {
+  const totalPlayers = players.length;
+
+  for (let step = 1; step <= totalPlayers; step += 1) {
+    const nextIndex = (fromIndex + step) % totalPlayers;
+
+    if (!players[nextIndex]!.eliminated) {
+      return nextIndex;
+    }
+  }
+
+  return fromIndex;
+}
 
 export function initGame(players: Player[], seed: number): GameState {
   if (players.length < 2 || players.length > 7) {
@@ -143,7 +157,123 @@ export function applyAction(
         events,
       };
     }
+    case 'shoot': {
+      const shooter = state.players[state.currentPlayerIndex]!;
+      const target = state.players.find((player) => player.id === action.targetId);
+
+      if (!target) {
+        throw new Error(`Target ${action.targetId} not found`);
+      }
+
+      if (target.eliminated) {
+        throw new Error(`Target ${action.targetId} is eliminated`);
+      }
+
+      const fired = fireBullet(state.chamber);
+      const isSelfShot = target.id === shooter.id;
+
+      events.push({
+        type: 'shot-fired',
+        shooterId: shooter.id,
+        targetId: target.id,
+        bullet: fired.bullet,
+      });
+
+      const players = [...state.players];
+      const extraTurns = { ...state.extraTurnsUsedThisChamber };
+      let nextPlayerIndex = state.currentPlayerIndex;
+      let phase = state.phase;
+      let winnerId = state.winnerId;
+
+      if (fired.bullet === 'live') {
+        const targetIndex = players.findIndex((player) => player.id === target.id);
+        const previousTarget = players[targetIndex]!;
+        const nextLives = Math.max(previousTarget.lives - 1, 0);
+        const eliminated = nextLives <= 0;
+
+        players[targetIndex] = {
+          ...previousTarget,
+          lives: nextLives,
+          eliminated,
+        };
+
+        events.push({
+          type: 'lives-changed',
+          playerId: target.id,
+          newLives: nextLives,
+        });
+
+        if (eliminated) {
+          events.push({
+            type: 'player-eliminated',
+            playerId: target.id,
+          });
+        }
+      }
+
+      const grantsExtraTurn =
+        isSelfShot &&
+        fired.bullet === 'blank' &&
+        !players[state.currentPlayerIndex]!.eliminated;
+      const usedSoFar = extraTurns[shooter.id] ?? 0;
+      const capHit = grantsExtraTurn && usedSoFar >= 1;
+
+      if (grantsExtraTurn && !capHit) {
+        extraTurns[shooter.id] = usedSoFar + 1;
+        events.push({
+          type: 'extra-turn-granted',
+          playerId: shooter.id,
+        });
+      } else {
+        if (capHit) {
+          events.push({
+            type: 'extra-turn-cap-hit',
+            playerId: shooter.id,
+          });
+        }
+
+        nextPlayerIndex = nextAliveIndex(players, state.currentPlayerIndex);
+
+        if (!players[nextPlayerIndex]!.eliminated) {
+          events.push({
+            type: 'turn-changed',
+            nextPlayerId: players[nextPlayerIndex]!.id,
+          });
+        }
+      }
+
+      const alivePlayers = players.filter((player) => !player.eliminated);
+
+      if (alivePlayers.length === 1) {
+        winnerId = alivePlayers[0]!.id;
+        phase = 'game-over';
+        events.push({
+          type: 'game-over',
+          winnerId,
+        });
+      } else if (fired.chamber.bullets.length === 0) {
+        phase = 'between-rounds';
+        events.push({ type: 'chamber-empty' });
+      } else {
+        phase = 'turn-item';
+      }
+
+      return {
+        state: {
+          ...state,
+          players,
+          chamber: fired.chamber,
+          currentPlayerIndex: nextPlayerIndex,
+          phase,
+          extraTurnsUsedThisChamber: extraTurns,
+          itemsUsedThisTurn: { chocolate: false, magnifier: false },
+          winnerId,
+          actionLog: [...state.actionLog, action],
+        },
+        events,
+      };
+    }
     default:
-      throw new Error(`Unsupported action type: ${action.type}`);
+      throw new Error('Unsupported action type');
   }
 }
