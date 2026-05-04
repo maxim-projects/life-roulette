@@ -1,4 +1,5 @@
 import { fireBullet, generateChamber } from './chamber';
+import { resolveDamage } from './damage';
 import { createRng } from './rng';
 import type { Action, GameEvent, GameState, Player } from './types';
 
@@ -186,24 +187,47 @@ export function applyAction(
       let winnerId = state.winnerId;
 
       if (fired.bullet === 'live') {
+        let baseDamage = 1;
+        const shooterIndex = state.currentPlayerIndex;
+
+        if (shooter.classId === 'double' && shooter.classState.knifeArmed) {
+          baseDamage *= 2;
+          players[shooterIndex] = {
+            ...shooter,
+            classState: {
+              ...shooter.classState,
+              knifeArmed: false,
+              knifeUsed: true,
+            },
+          };
+          events.push({ type: 'knife-doubled-damage', playerId: shooter.id });
+        }
+
         const targetIndex = players.findIndex((player) => player.id === target.id);
-        const previousTarget = players[targetIndex]!;
-        const nextLives = Math.max(previousTarget.lives - 1, 0);
+        const targetCurrent = players[targetIndex]!;
+        const damageResult = resolveDamage(targetCurrent, baseDamage, 'bullet');
+        const damage = damageResult.finalDamage;
+        const nextLives = Math.max(targetCurrent.lives - damage, 0);
         const eliminated = nextLives <= 0;
 
+        events.push(...damageResult.events);
+
         players[targetIndex] = {
-          ...previousTarget,
+          ...targetCurrent,
           lives: nextLives,
           eliminated,
+          classState: damageResult.updatedClassState,
         };
 
-        events.push({
-          type: 'lives-changed',
-          playerId: target.id,
-          newLives: nextLives,
-        });
+        if (damage > 0) {
+          events.push({
+            type: 'lives-changed',
+            playerId: target.id,
+            newLives: nextLives,
+          });
+        }
 
-        if (eliminated) {
+        if (eliminated && !targetCurrent.eliminated) {
           events.push({
             type: 'player-eliminated',
             playerId: target.id,

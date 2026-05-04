@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { defaultClassState, initialPlayerForClass } from '../../src/game/classes';
 import { applyAction, initGame } from '../../src/game/engine';
-import type { Player } from '../../src/game/types';
+import type { ClassId, Player } from '../../src/game/types';
 
 function makePlayer(id: string, name: string, isBot = false): Player {
   return {
@@ -8,9 +9,11 @@ function makePlayer(id: string, name: string, isBot = false): Player {
     name,
     profileId: null,
     lives: 4,
-    inventory: { chocolate: 1, magnifier: 1 },
+    inventory: { chocolate: 1, magnifier: 1, knife: 0 },
     isBot,
     eliminated: false,
+    classId: null,
+    classState: defaultClassState(),
   };
 }
 
@@ -449,5 +452,93 @@ describe('engine.applyAction(shoot)', () => {
       chocolate: false,
       magnifier: false,
     });
+  });
+});
+
+describe('engine.applyAction(shoot) with classes', () => {
+  function setup3pWithClasses(classes: Array<ClassId | null>) {
+    const players = classes.map((classId, index) => ({
+      ...makePlayer(`p${index}`, `P${index}`),
+      classId,
+      classState: initialPlayerForClass(classId),
+      lives: classId === 'double' ? 5 : 4,
+    }));
+
+    let state = initGame(players, 42);
+    state = applyAction(state, { type: 'spin-roulette' }).state;
+    state = applyAction(state, { type: 'load-chamber' }).state;
+
+    return state;
+  }
+
+  function withChamber(state: ReturnType<typeof setup3pWithClasses>, bullets: Array<'live' | 'blank'>) {
+    return {
+      ...state,
+      chamber: {
+        bullets: [...bullets],
+        liveCount: bullets.filter((bullet) => bullet === 'live').length,
+        blankCount: bullets.filter((bullet) => bullet === 'blank').length,
+      },
+    };
+  }
+
+  it('Tank blocks first live bullet at him (lives unchanged)', () => {
+    let state = setup3pWithClasses(['tank', null, null]);
+    state.currentPlayerIndex = 1;
+    state = withChamber(state, ['live']);
+
+    const result = applyAction(state, { type: 'shoot', targetId: 'p0' });
+
+    expect(result.state.players[0]!.lives).toBe(4);
+    expect(result.state.players[0]!.classState.tankBlockUsed).toBe(true);
+    expect(result.events.some((event) => event.type === 'tank-block-triggered')).toBe(true);
+  });
+
+  it('Specops takes 0.5 damage from live bullet (4 → 3.5)', () => {
+    let state = setup3pWithClasses(['specops', null, null]);
+    state.currentPlayerIndex = 1;
+    state = withChamber(state, ['live']);
+
+    const result = applyAction(state, { type: 'shoot', targetId: 'p0' });
+
+    expect(result.state.players[0]!.lives).toBe(3.5);
+    expect(result.state.players[0]!.classState.armorChargesLeft).toBe(2);
+  });
+
+  it('Double with knife armed deals 2 damage on live (target 4 → 2)', () => {
+    let state = setup3pWithClasses(['double', null, null]);
+    state.currentPlayerIndex = 0;
+    state.players[0]!.classState.knifeArmed = true;
+    state = withChamber(state, ['live']);
+
+    const result = applyAction(state, { type: 'shoot', targetId: 'p1' });
+
+    expect(result.state.players[1]!.lives).toBe(2);
+    expect(result.state.players[0]!.classState.knifeArmed).toBe(false);
+    expect(result.state.players[0]!.classState.knifeUsed).toBe(true);
+    expect(result.events.some((event) => event.type === 'knife-doubled-damage')).toBe(true);
+  });
+
+  it('Double knife survives blank (still armed after blank shot)', () => {
+    let state = setup3pWithClasses(['double', null, null]);
+    state.currentPlayerIndex = 0;
+    state.players[0]!.classState.knifeArmed = true;
+    state = withChamber(state, ['blank', 'live']);
+
+    const result = applyAction(state, { type: 'shoot', targetId: 'p1' });
+
+    expect(result.state.players[0]!.classState.knifeArmed).toBe(true);
+    expect(result.state.players[0]!.classState.knifeUsed).toBe(false);
+  });
+
+  it('Knife + Specops armor: 2x damage halved = 1 damage', () => {
+    let state = setup3pWithClasses(['double', 'specops', null]);
+    state.currentPlayerIndex = 0;
+    state.players[0]!.classState.knifeArmed = true;
+    state = withChamber(state, ['live']);
+
+    const result = applyAction(state, { type: 'shoot', targetId: 'p1' });
+
+    expect(result.state.players[1]!.lives).toBe(3);
   });
 });
