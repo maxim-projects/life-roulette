@@ -57,6 +57,24 @@ describe('engine.initGame', () => {
     expect(specops.classState.armorChargesLeft).toBe(3);
     expect(specops.classState.armorRoundsLeft).toBe(3);
   });
+
+  it('preserves player inventory and adds class-specific start items', () => {
+    const players = [
+      {
+        ...makePlayer('double', 'Double'),
+        classId: 'double' as const,
+        inventory: { chocolate: 3, magnifier: 2, knife: 0 },
+      },
+      { ...makePlayer('plain', 'Plain'), inventory: { chocolate: 2, magnifier: 4, knife: 0 } },
+    ];
+
+    const state = initGame(players, 42);
+    const double = state.players.find((player) => player.id === 'double')!;
+    const plain = state.players.find((player) => player.id === 'plain')!;
+
+    expect(double.inventory).toEqual({ chocolate: 3, magnifier: 2, knife: 1 });
+    expect(plain.inventory).toEqual({ chocolate: 2, magnifier: 4, knife: 0 });
+  });
 });
 
 describe('engine.applyAction(spin-roulette)', () => {

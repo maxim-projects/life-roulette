@@ -29,13 +29,21 @@ export function initGame(players: Player[], seed: number): GameState {
   }
 
   return {
-    players: players.map((player) => ({
-      ...player,
-      lives: classStartingLives(player.classId),
-      inventory: classStartingInventory(player.classId),
-      classState: initialPlayerForClass(player.classId),
-      eliminated: false,
-    })),
+    players: players.map((player) => {
+      const startInventory = classStartingInventory(player.classId);
+
+      return {
+        ...player,
+        lives: classStartingLives(player.classId),
+        inventory: {
+          chocolate: Math.max(player.inventory.chocolate, startInventory.chocolate),
+          magnifier: Math.max(player.inventory.magnifier, startInventory.magnifier),
+          knife: Math.max(player.inventory.knife, startInventory.knife),
+        },
+        classState: initialPlayerForClass(player.classId),
+        eliminated: false,
+      };
+    }),
     currentPlayerIndex: 0,
     chamber: { bullets: [], liveCount: 0, blankCount: 0 },
     phase: 'roulette',
