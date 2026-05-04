@@ -9,6 +9,7 @@ test('happy path: vs AI returns visible winner screen', async ({ page }) => {
   await page.getByRole('button', { name: 'Играть' }).click();
   await page.getByRole('button', { name: 'vs компьютер' }).click();
   await page.getByRole('button', { name: 'Гость' }).click();
+  await page.locator('div').filter({ hasText: 'Без класса' }).first().click();
 
   await expect(page.getByRole('button', { name: 'Стрелять' })).toBeVisible({
     timeout: 30000,
@@ -22,10 +23,17 @@ test('happy path: vs AI returns visible winner screen', async ({ page }) => {
     const shootButton = page.getByRole('button', { name: 'Стрелять' }).first();
     if (
       (await shootButton.count()) > 0 &&
-      (await shootButton.isVisible()) &&
-      (await shootButton.isEnabled())
+      (await shootButton.isVisible())
     ) {
-      await shootButton.click();
+      const clickedShoot = await shootButton
+        .click({ timeout: 500 })
+        .then(() => true)
+        .catch(() => false);
+
+      if (!clickedShoot) {
+        await page.waitForTimeout(150);
+        continue;
+      }
 
       const targetButton = page
         .locator('button')

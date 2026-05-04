@@ -41,10 +41,17 @@ test('vs AI as Medic — playthrough', async ({ page }) => {
     const shootButton = page.getByRole('button', { name: 'Стрелять' }).first();
     if (
       (await shootButton.count()) > 0 &&
-      (await shootButton.isVisible()) &&
-      (await shootButton.isEnabled())
+      (await shootButton.isVisible())
     ) {
-      await shootButton.click();
+      const clickedShoot = await shootButton
+        .click({ timeout: 500 })
+        .then(() => true)
+        .catch(() => false);
+
+      if (!clickedShoot) {
+        await page.waitForTimeout(150);
+        continue;
+      }
 
       const targetButton = page
         .locator('button')
