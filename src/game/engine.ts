@@ -95,16 +95,20 @@ export function applyAction(
     case 'load-chamber': {
       const chamber = generateChamber(rng);
       const players = state.players.map((player) => {
-        const classState = {
+        let classState = {
           ...player.classState,
           lightningUsedThisChamber: false,
         };
 
         if (player.classId === 'specops' && classState.armorActive) {
-          classState.armorRoundsLeft -= 1;
-
-          if (classState.armorRoundsLeft <= 0) {
-            classState.armorActive = false;
+          const newRounds = classState.armorRoundsLeft - 1;
+          const broke = newRounds <= 0;
+          classState = {
+            ...classState,
+            armorRoundsLeft: newRounds,
+            armorActive: broke ? false : classState.armorActive,
+          };
+          if (broke) {
             events.push({ type: 'armor-broke', playerId: player.id });
           }
         }

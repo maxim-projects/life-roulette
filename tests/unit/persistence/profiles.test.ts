@@ -116,4 +116,25 @@ describe('profiles ownedClasses', () => {
     expect(profiles).toHaveLength(1);
     expect(profiles[0]!.ownedClasses).toEqual([]);
   });
+
+  it('migrates legacy profiles missing inventory.knife (filling with 0)', () => {
+    memoryStorage.setItem(
+      'life-roulette:profiles',
+      JSON.stringify([
+        {
+          id: 'legacy',
+          name: 'L',
+          currency: 100,
+          inventory: { chocolate: 2, magnifier: 1 },
+          createdAt: 1,
+          lastUsed: 1,
+        },
+      ]),
+    );
+
+    const profiles = listProfiles();
+
+    expect(profiles).toHaveLength(1);
+    expect(profiles[0]!.inventory).toEqual({ chocolate: 2, magnifier: 1, knife: 0 });
+  });
 });

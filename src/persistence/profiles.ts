@@ -25,10 +25,19 @@ function readAll(): PlayerProfile[] {
       return [];
     }
 
-    return parsed.map((profile: PlayerProfile & { ownedClasses?: ClassId[] }) => ({
-      ...profile,
-      ownedClasses: profile.ownedClasses ?? [],
-    }));
+    return parsed.map(
+      (profile: PlayerProfile & { ownedClasses?: ClassId[]; inventory?: Partial<Record<ItemId, number>> }) => ({
+        ...profile,
+        // Migration: legacy profiles missed `knife` key in inventory.
+        // Without this, Math.max(undefined, 0) = NaN later in initGame.
+        inventory: {
+          chocolate: profile.inventory?.chocolate ?? 0,
+          magnifier: profile.inventory?.magnifier ?? 0,
+          knife: profile.inventory?.knife ?? 0,
+        },
+        ownedClasses: profile.ownedClasses ?? [],
+      }),
+    );
   } catch {
     return [];
   }
