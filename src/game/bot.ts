@@ -19,6 +19,18 @@ export function botDecide(view: PlayerView, _rng: Rng, context: BotContext): Act
     null,
   );
 
+  if (
+    me.classId === 'god' &&
+    !me.classState.lightningUsedThisChamber &&
+    me.classState.lightningTotalUsed < 4
+  ) {
+    const killable = aliveEnemies.find((player) => player.lives <= 1);
+
+    if (killable) {
+      return { type: 'use-ability', ability: 'lightning', targetId: killable.id };
+    }
+  }
+
   // Per spec section 5.7 step 1: magnifier is checked FIRST, before chocolate.
   // Knowing the next bullet often makes chocolate unnecessary (e.g., next is
   // blank → safe self-shot for free turn).

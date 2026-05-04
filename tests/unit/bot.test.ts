@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { defaultClassState } from '../../src/game/classes';
 import { botDecide } from '../../src/game/bot';
 import { createRng } from '../../src/game/rng';
 import type { Player, PlayerView } from '../../src/game/types';
@@ -6,6 +7,8 @@ import type { Player, PlayerView } from '../../src/game/types';
 function makeView(options: {
   selfInventory?: Player['inventory'];
   selfLives?: number;
+  selfClassId?: Player['classId'];
+  selfClassState?: Player['classState'];
   otherPlayers?: PlayerView['otherPlayers'];
   chamberLive?: number;
   chamberBlank?: number;
@@ -15,15 +18,17 @@ function makeView(options: {
     name: 'Bot',
     profileId: null,
     lives: options.selfLives ?? 4,
-    inventory: options.selfInventory ?? { chocolate: 1, magnifier: 1 },
+    inventory: options.selfInventory ?? { chocolate: 1, magnifier: 1, knife: 0 },
     isBot: true,
     eliminated: false,
+    classId: options.selfClassId ?? null,
+    classState: options.selfClassState ?? defaultClassState(),
   };
 
   return {
     selfPlayer: self,
     otherPlayers: options.otherPlayers ?? [
-      { id: 'human', name: 'Human', lives: 3, eliminated: false },
+      { id: 'human', name: 'Human', lives: 3, eliminated: false, classId: null },
     ],
     chamberLive: options.chamberLive ?? 3,
     chamberBlank: options.chamberBlank ?? 3,
@@ -55,8 +60,8 @@ describe('botDecide', () => {
   it('peek blank with cap reached means shoot weakest enemy', () => {
     const view = makeView({
       otherPlayers: [
-        { id: 'h1', name: 'A', lives: 4, eliminated: false },
-        { id: 'h2', name: 'B', lives: 1, eliminated: false },
+        { id: 'h1', name: 'A', lives: 4, eliminated: false, classId: null },
+        { id: 'h2', name: 'B', lives: 1, eliminated: false, classId: null },
       ],
     });
 
@@ -72,8 +77,8 @@ describe('botDecide', () => {
   it('peek live means shoot weakest enemy', () => {
     const view = makeView({
       otherPlayers: [
-        { id: 'h1', name: 'A', lives: 3, eliminated: false },
-        { id: 'h2', name: 'B', lives: 1, eliminated: false },
+        { id: 'h1', name: 'A', lives: 3, eliminated: false, classId: null },
+        { id: 'h2', name: 'B', lives: 1, eliminated: false, classId: null },
       ],
     });
 
@@ -91,7 +96,7 @@ describe('botDecide', () => {
       botDecide(
         makeView({
           selfLives: 1,
-          selfInventory: { chocolate: 1, magnifier: 0 },
+          selfInventory: { chocolate: 1, magnifier: 0, knife: 0 },
         }),
         createRng(1),
         {
@@ -107,7 +112,7 @@ describe('botDecide', () => {
     const view = makeView({
       chamberLive: 4,
       chamberBlank: 2,
-      otherPlayers: [{ id: 'h', name: 'H', lives: 2, eliminated: false }],
+      otherPlayers: [{ id: 'h', name: 'H', lives: 2, eliminated: false, classId: null }],
     });
 
     expect(
@@ -133,5 +138,37 @@ describe('botDecide', () => {
         },
       ),
     ).toEqual({ type: 'shoot', targetId: 'bot' });
+  });
+});
+
+describe('botDecide for God class', () => {
+  it('God with lightning available + weak enemy → cast lightning', () => {
+    const view = makeView({
+      selfClassId: 'god',
+      selfClassState: { ...defaultClassState() },
+      otherPlayers: [{ id: 'h', name: 'H', lives: 1, eliminated: false, classId: null }],
+    });
+
+    const action = botDecide(view, createRng(1), {
+      magnifierUsedThisTurn: false,
+      peekedNextBullet: null,
+    });
+
+    expect(action).toEqual({ type: 'use-ability', ability: 'lightning', targetId: 'h' });
+  });
+
+  it('God without lightning charges → falls through to magnifier', () => {
+    const view = makeView({
+      selfClassId: 'god',
+      selfClassState: { ...defaultClassState(), lightningTotalUsed: 4 },
+      otherPlayers: [{ id: 'h', name: 'H', lives: 1, eliminated: false, classId: null }],
+    });
+
+    const action = botDecide(view, createRng(1), {
+      magnifierUsedThisTurn: false,
+      peekedNextBullet: null,
+    });
+
+    expect(action).toEqual({ type: 'use-item', itemId: 'magnifier' });
   });
 });
