@@ -258,6 +258,16 @@ export function applyAction(
         phase = 'turn-item';
       }
 
+      // Reset itemsUsedThisTurn ONLY when the turn passes to a different
+      // player. When extra-turn is granted (blank self-shot, cap not hit),
+      // the same player keeps playing, and their per-turn item budget must
+      // not refresh — otherwise a player can chain peek+self-shoot to
+      // monopolize the chamber.
+      const turnPasses = !grantsExtraTurn || capHit;
+      const nextItemsUsedThisTurn = turnPasses
+        ? { chocolate: false, magnifier: false }
+        : state.itemsUsedThisTurn;
+
       return {
         state: {
           ...state,
@@ -266,7 +276,7 @@ export function applyAction(
           currentPlayerIndex: nextPlayerIndex,
           phase,
           extraTurnsUsedThisChamber: extraTurns,
-          itemsUsedThisTurn: { chocolate: false, magnifier: false },
+          itemsUsedThisTurn: nextItemsUsedThisTurn,
           winnerId,
           actionLog: [...state.actionLog, action],
         },

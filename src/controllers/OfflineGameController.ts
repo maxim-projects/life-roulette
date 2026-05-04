@@ -184,10 +184,14 @@ export class OfflineGameController {
       await this.scene.setActivePlayer(currentPlayer.id);
       this.render();
 
+      // Show pass-device screen between human turns in hot-seat. Spec section
+      // 10.4: "скрывает все приватные данные (peek, инвентарь предыдущего
+      // игрока)". Including the very first turn — otherwise Player A holding
+      // the device can see Player B's starting inventory before Player B
+      // takes over.
       if (
         this.mode === 'hot-seat' &&
         !currentPlayer.isBot &&
-        this.lastPresentedPlayerId !== null &&
         this.lastPresentedPlayerId !== currentPlayer.id &&
         firstCycle
       ) {

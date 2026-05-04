@@ -389,7 +389,7 @@ describe('engine.applyAction(shoot)', () => {
     ).toThrow();
   });
 
-  it('resets itemsUsedThisTurn after shot', () => {
+  it('resets itemsUsedThisTurn after shot when turn passes', () => {
     let state = setupThreePlayers();
     const shooterIndex = state.currentPlayerIndex;
     state = {
@@ -403,6 +403,48 @@ describe('engine.applyAction(shoot)', () => {
       targetId: state.players[(shooterIndex + 1) % 3]!.id,
     });
 
+    expect(result.state.itemsUsedThisTurn).toEqual({
+      chocolate: false,
+      magnifier: false,
+    });
+  });
+
+  it('PRESERVES itemsUsedThisTurn when self+blank grants extra turn (no double-budget exploit)', () => {
+    let state = setupThreePlayers();
+    const shooterIndex = state.currentPlayerIndex;
+    state = {
+      ...state,
+      itemsUsedThisTurn: { chocolate: false, magnifier: true },
+    };
+    state = withChamber(state, ['blank', 'live']);
+
+    const result = applyAction(state, {
+      type: 'shoot',
+      targetId: state.players[shooterIndex]!.id,
+    });
+
+    expect(result.state.currentPlayerIndex).toBe(shooterIndex);
+    expect(result.state.itemsUsedThisTurn.magnifier).toBe(true);
+    expect(result.state.itemsUsedThisTurn.chocolate).toBe(false);
+  });
+
+  it('RESETS itemsUsedThisTurn when extra-turn cap hit (turn passes)', () => {
+    let state = setupThreePlayers();
+    const shooterIndex = state.currentPlayerIndex;
+    const shooterId = state.players[shooterIndex]!.id;
+    state = {
+      ...state,
+      itemsUsedThisTurn: { chocolate: true, magnifier: true },
+      extraTurnsUsedThisChamber: { [shooterId]: 1 },
+    };
+    state = withChamber(state, ['blank', 'live']);
+
+    const result = applyAction(state, {
+      type: 'shoot',
+      targetId: shooterId,
+    });
+
+    expect(result.state.currentPlayerIndex).not.toBe(shooterIndex);
     expect(result.state.itemsUsedThisTurn).toEqual({
       chocolate: false,
       magnifier: false,

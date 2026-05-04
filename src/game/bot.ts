@@ -19,16 +19,19 @@ export function botDecide(view: PlayerView, _rng: Rng, context: BotContext): Act
     null,
   );
 
+  // Per spec section 5.7 step 1: magnifier is checked FIRST, before chocolate.
+  // Knowing the next bullet often makes chocolate unnecessary (e.g., next is
+  // blank → safe self-shot for free turn).
+  if (me.inventory.magnifier > 0 && !context.magnifierUsedThisTurn) {
+    return { type: 'use-item', itemId: 'magnifier' };
+  }
+
   if (
     me.lives <= 1 &&
     me.inventory.chocolate > 0 &&
     !context.chocolateUsedThisTurn
   ) {
     return { type: 'use-item', itemId: 'chocolate' };
-  }
-
-  if (me.inventory.magnifier > 0 && !context.magnifierUsedThisTurn) {
-    return { type: 'use-item', itemId: 'magnifier' };
   }
 
   if (context.peekedNextBullet === 'blank') {
