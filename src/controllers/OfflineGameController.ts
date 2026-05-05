@@ -1,4 +1,5 @@
 import { botDecide } from '../game/bot';
+import { calculateReward } from '../game/classes';
 import { applyAction } from '../game/engine';
 import { createRng } from '../game/rng';
 import { getPlayerView } from '../game/views';
@@ -451,11 +452,12 @@ export class OfflineGameController {
 
     const winner = this.state.players.find((player) => player.id === winnerId)!;
     const humanWon = this.profileMap.get(winnerId) !== null;
+    const winnerReward = humanWon ? calculateReward(winner.classId, true) : 0;
 
     await new Promise<void>((resolve) => {
       const screen = mountWinnerScreen(this.root, {
         playerName: winner.name,
-        rewardText: humanWon ? 'Получил +200 ₽' : 'Бот победил',
+        rewardText: humanWon ? `Получил +${winnerReward} ₽` : 'Бот победил',
         onMenu: () => {
           screen.unmount();
           resolve();
@@ -481,8 +483,11 @@ export class OfflineGameController {
         return;
       }
 
+      const isWinner = player.id === winnerId;
+      const reward = calculateReward(player.classId, isWinner);
+
       updateProfile(profileId, {
-        currency: profile.currency + (player.id === winnerId ? 200 : 50),
+        currency: profile.currency + reward,
       });
     });
   }
