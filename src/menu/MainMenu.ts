@@ -6,12 +6,13 @@ export interface MainMenuProps {
 
 export function mountMainMenu(parent: HTMLElement, props: MainMenuProps): { unmount: () => void } {
   const root = document.createElement('div');
-  root.style.cssText =
-    'display:flex;flex:1;align-items:center;justify-content:center;padding:24px;background:radial-gradient(circle at top,#20314e 0%,#0a0d14 75%);';
+  root.className = 'lr-screen';
+  root.style.background = 'radial-gradient(circle at top,#20314e 0%,#0a0d14 75%)';
 
   const panel = document.createElement('div');
+  panel.className = 'lr-screen-content';
   panel.style.cssText =
-    'width:min(100%,420px);background:rgba(10,13,20,0.82);border:1px solid #31415d;border-radius:28px;padding:32px;';
+    'max-width:420px;background:rgba(10,13,20,0.82);border:1px solid #31415d;border-radius:28px;padding:32px;';
 
   const title = document.createElement('h1');
   title.textContent = 'Рулетка Жизни';

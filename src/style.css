@@ -31,3 +31,46 @@ button {
   min-height: 44px;
   min-width: 44px;
 }
+
+/* === Scrollable screen layout ===
+ *
+ * `body { overflow: hidden }` блокирует скролл на уровне документа,
+ * поэтому каждый экран ОБЯЗАН сам управлять прокруткой содержимого.
+ *
+ * Стандарт для всех top-level экранов проекта:
+ *   .lr-screen   — обычный экран (Menu, Shop, ProfileSelect, etc.)
+ *   .lr-overlay  — fullscreen overlay поверх игры (ClassSelect, PassDevice, PrivatePeek)
+ *
+ * НЕ использовать `justify-content: center` по вертикали — это стандартный
+ * flexbox-баг: при контенте больше viewport верх не докрутить. Вместо этого
+ * justify-content: flex-start + margin: auto на content-обёртке.
+ */
+
+.lr-screen,
+.lr-overlay {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 24px;
+}
+
+.lr-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  background: #0a0a14;
+  color: #e8e8f0;
+  flex: none;
+  height: 100%;
+}
+
+.lr-screen-content,
+.lr-overlay-content {
+  width: 100%;
+  max-width: 720px;
+  margin-block: auto;
+}

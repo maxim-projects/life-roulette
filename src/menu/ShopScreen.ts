@@ -17,11 +17,12 @@ const ITEM_PRICES: Record<ShopItemId, number> = {
 
 export function mountShopScreen(parent: HTMLElement, props: ShopScreenProps): { unmount: () => void } {
   const root = document.createElement('div');
-  root.style.cssText = 'display:flex;flex:1;justify-content:center;padding:24px;';
+  root.className = 'lr-screen';
 
   const panel = document.createElement('div');
+  panel.className = 'lr-screen-content';
   panel.style.cssText =
-    'width:min(100%,720px);background:rgba(15,20,32,0.92);border:1px solid #31415d;border-radius:24px;padding:28px;';
+    'background:rgba(15,20,32,0.92);border:1px solid #31415d;border-radius:24px;padding:28px;';
 
   const title = document.createElement('h2');
   title.textContent = 'Магазин';

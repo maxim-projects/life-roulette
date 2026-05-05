@@ -37,11 +37,12 @@ export function mountProfileSelect(
   props: ProfileSelectProps,
 ): { unmount: () => void } {
   const root = document.createElement('div');
-  root.style.cssText = 'display:flex;flex:1;justify-content:center;padding:24px;';
+  root.className = 'lr-screen';
 
   const panel = document.createElement('div');
+  panel.className = 'lr-screen-content';
   panel.style.cssText =
-    'width:min(100%,640px);background:rgba(15,20,32,0.92);border:1px solid #31415d;border-radius:24px;padding:28px;';
+    'max-width:640px;background:rgba(15,20,32,0.92);border:1px solid #31415d;border-radius:24px;padding:28px;';
 
   const title = document.createElement('h2');
   title.style.cssText = 'font-size:30px;margin-bottom:12px;text-align:center;';

@@ -17,27 +17,19 @@ export function mountClassSelectScreen(
   props: ClassSelectScreenProps,
 ): { unmount: () => void } {
   const root = document.createElement('div');
-  root.style.cssText = [
-    'position:fixed',
-    'inset:0',
-    'background:#0a0a14',
-    'color:#e8e8f0',
-    'display:flex',
-    'flex-direction:column',
-    'align-items:center',
-    'justify-content:center',
-    'padding:20px',
-    'z-index:500',
-    'overflow-y:auto',
-  ].join(';');
+  root.className = 'lr-overlay';
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'lr-overlay-content';
+  wrapper.style.cssText = 'max-width:400px;display:flex;flex-direction:column;align-items:center;';
 
   const title = document.createElement('h2');
   title.textContent = `${props.playerName}, выбери класс`;
   title.style.cssText = 'font-size:24px;margin-bottom:24px;text-align:center;';
-  root.appendChild(title);
+  wrapper.appendChild(title);
 
   const list = document.createElement('div');
-  list.style.cssText = 'display:flex;flex-direction:column;gap:12px;width:100%;max-width:400px;';
+  list.style.cssText = 'display:flex;flex-direction:column;gap:12px;width:100%;';
 
   const makeCard = (
     classId: ClassId | null,
@@ -98,7 +90,8 @@ export function mountClassSelectScreen(
     );
   }
 
-  root.appendChild(list);
+  wrapper.appendChild(list);
+  root.appendChild(wrapper);
   parent.appendChild(root);
 
   return {
