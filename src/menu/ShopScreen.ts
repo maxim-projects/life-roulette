@@ -107,7 +107,7 @@ export function mountShopScreen(parent: HTMLElement, props: ShopScreenProps): { 
 
     subtitle.textContent = currentProfile
       ? `${currentProfile.name} · ${currentProfile.currency} ₽`
-      : 'Создай профиль, чтобы покупать предметы.';
+      : 'Создай профиль, чтобы покупать предметы и классы.';
 
     profileList.replaceChildren();
     items.replaceChildren();
@@ -163,64 +163,73 @@ export function mountShopScreen(parent: HTMLElement, props: ShopScreenProps): { 
       items.appendChild(card);
     });
 
-    if (currentProfile) {
-      const classSection = document.createElement('div');
-      classSection.style.cssText = 'margin-top:24px;';
+    // Класс-секция показывается всегда, чтобы пользователь видел что вообще есть.
+    // Если профиля нет или валюты не хватает — кнопки disabled.
+    const classSection = document.createElement('div');
+    classSection.style.cssText = 'margin-top:24px;';
 
-      const classTitle = document.createElement('h3');
-      classTitle.textContent = 'Классы (разовая покупка)';
-      classTitle.style.cssText = 'font-size:18px;margin-bottom:12px;';
-      classSection.appendChild(classTitle);
+    const classTitle = document.createElement('h3');
+    classTitle.textContent = 'Классы (разовая покупка)';
+    classTitle.style.cssText = 'font-size:18px;margin-bottom:12px;';
+    classSection.appendChild(classTitle);
 
-      for (const classId of ALL_CLASS_IDS) {
-        const owned = currentProfile.ownedClasses.includes(classId);
-        const price = CLASS_PRICES[classId];
-        const canAfford = currentProfile.currency >= price;
+    if (!currentProfile) {
+      const hint = document.createElement('div');
+      hint.textContent = 'Создай профиль, чтобы покупать классы.';
+      hint.style.cssText = 'color:#b9c7e7;margin-bottom:12px;font-size:13px;';
+      classSection.appendChild(hint);
+    }
 
-        const row = document.createElement('div');
-        row.style.cssText =
-          'display:flex;align-items:center;gap:12px;padding:12px;background:#1a1a2e;border-radius:8px;margin-bottom:8px;';
+    for (const classId of ALL_CLASS_IDS) {
+      const owned = currentProfile?.ownedClasses.includes(classId) ?? false;
+      const price = CLASS_PRICES[classId];
+      const canAfford = (currentProfile?.currency ?? 0) >= price;
 
-        const icon = document.createElement('span');
-        icon.textContent = CLASS_ICONS[classId];
-        icon.style.cssText = 'font-size:24px;';
+      const row = document.createElement('div');
+      row.style.cssText =
+        'display:flex;align-items:center;gap:12px;padding:12px;background:#1a1a2e;border-radius:8px;margin-bottom:8px;';
 
-        const text = document.createElement('div');
-        text.style.cssText = 'flex:1;';
-        const name = document.createElement('div');
-        name.textContent = CLASS_NAMES[classId];
-        name.style.cssText = 'font-weight:bold;';
-        const description = document.createElement('div');
-        description.textContent = CLASS_DESCRIPTIONS[classId];
-        description.style.cssText = 'font-size:12px;color:#aaa;';
-        text.append(name, description);
+      const icon = document.createElement('span');
+      icon.textContent = CLASS_ICONS[classId];
+      icon.style.cssText = 'font-size:24px;';
 
-        const button = document.createElement('button');
-        if (owned) {
-          button.textContent = '✓ Куплено';
-          button.disabled = true;
-          button.style.cssText =
-            'background:#2ecc71;color:white;border:none;padding:8px 16px;border-radius:6px;';
-        } else {
-          button.textContent = `${price} ₽`;
-          button.disabled = !canAfford;
-          button.style.cssText = [
-            `background:${canAfford ? '#6c5ce7' : '#444'}`,
-            'color:white',
-            'border:none',
-            'padding:8px 16px',
-            'border-radius:6px',
-            `cursor:${canAfford ? 'pointer' : 'not-allowed'}`,
-          ].join(';');
+      const text = document.createElement('div');
+      text.style.cssText = 'flex:1;';
+      const name = document.createElement('div');
+      name.textContent = CLASS_NAMES[classId];
+      name.style.cssText = 'font-weight:bold;';
+      const description = document.createElement('div');
+      description.textContent = CLASS_DESCRIPTIONS[classId];
+      description.style.cssText = 'font-size:12px;color:#aaa;';
+      text.append(name, description);
+
+      const button = document.createElement('button');
+      if (owned) {
+        button.textContent = '✓ Куплено';
+        button.disabled = true;
+        button.style.cssText =
+          'background:#2ecc71;color:white;border:none;padding:8px 16px;border-radius:6px;';
+      } else {
+        button.textContent = `${price} ₽`;
+        button.disabled = !currentProfile || !canAfford;
+        button.style.cssText = [
+          `background:${button.disabled ? '#444' : '#6c5ce7'}`,
+          'color:white',
+          'border:none',
+          'padding:8px 16px',
+          'border-radius:6px',
+          `cursor:${button.disabled ? 'not-allowed' : 'pointer'}`,
+        ].join(';');
+        if (!button.disabled) {
           button.onclick = () => buyClass(classId);
         }
-
-        row.append(icon, text, button);
-        classSection.appendChild(row);
       }
 
-      items.appendChild(classSection);
+      row.append(icon, text, button);
+      classSection.appendChild(row);
     }
+
+    items.appendChild(classSection);
 
     const createButton = document.createElement('button');
     createButton.textContent = 'Создать профиль';
