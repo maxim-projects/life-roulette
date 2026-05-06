@@ -20,6 +20,7 @@ describe('classes', () => {
       knifeUsed: false,
       lightningUsedThisChamber: false,
       lightningTotalUsed: 0,
+      superArmed: false,
     });
   });
 
@@ -49,16 +50,19 @@ describe('classes', () => {
       chocolate: 1,
       magnifier: 1,
       knife: 1,
+      super: 0,
     });
     expect(classStartingInventory('medic')).toEqual({
       chocolate: 1,
       magnifier: 1,
       knife: 0,
+      super: 0,
     });
     expect(classStartingInventory(null)).toEqual({
       chocolate: 1,
       magnifier: 1,
       knife: 0,
+      super: 0,
     });
   });
 

@@ -39,6 +39,7 @@ export function initGame(players: Player[], seed: number): GameState {
           chocolate: Math.max(player.inventory.chocolate, startInventory.chocolate),
           magnifier: Math.max(player.inventory.magnifier, startInventory.magnifier),
           knife: Math.max(player.inventory.knife, startInventory.knife),
+          super: Math.max(player.inventory.super ?? 0, startInventory.super),
         },
         classState: initialPlayerForClass(player.classId),
         eliminated: false,
@@ -50,7 +51,7 @@ export function initGame(players: Player[], seed: number): GameState {
     rngSeed: seed,
     rngState: seed >>> 0,
     extraTurnsUsedThisChamber: {},
-    itemsUsedThisTurn: { chocolate: false, magnifier: false, knife: false },
+    itemsUsedThisTurn: { chocolate: false, magnifier: false, knife: false, super: false },
     winnerId: null,
     actionLog: [],
   };
@@ -133,7 +134,7 @@ export function applyAction(
           phase: 'turn-item',
           rngState: rng.toState(),
           extraTurnsUsedThisChamber: {},
-          itemsUsedThisTurn: { chocolate: false, magnifier: false, knife: false },
+          itemsUsedThisTurn: { chocolate: false, magnifier: false, knife: false, super: false },
           actionLog: [...state.actionLog, action],
         },
         events,
@@ -191,6 +192,17 @@ export function applyAction(
           knifeArmed: true,
         };
         events.push({ type: 'knife-armed', playerId: player.id });
+      }
+
+      if (action.itemId === 'super') {
+        if (player.classState.superArmed) {
+          throw new Error('Super-патрон уже взведён');
+        }
+        nextClassState = {
+          ...nextClassState,
+          superArmed: true,
+        };
+        events.push({ type: 'super-armed', playerId: player.id });
       }
 
       const nextPlayers = state.players.map((candidate, index) =>
@@ -356,6 +368,28 @@ export function applyAction(
           events.push({ type: 'knife-doubled-damage', playerId: shooter.id });
         }
 
+        // Super-патрон: рискованный выстрел. 50/50 — либо удвоенный урон, либо промах (0).
+        // Стакается с knife: при попадании Двойник + super → 4x урон.
+        // RNG детерминированный из state.rngState (seeded), для тестов и онлайн-readiness.
+        const shooterAfterKnife = players[shooterIndex]!;
+        if (shooterAfterKnife.classState.superArmed) {
+          const superHit = rng.next() < 0.5;
+          if (superHit) {
+            baseDamage *= 2;
+            events.push({ type: 'super-doubled-damage', playerId: shooterAfterKnife.id });
+          } else {
+            baseDamage = 0;
+            events.push({ type: 'super-missed', playerId: shooterAfterKnife.id });
+          }
+          players[shooterIndex] = {
+            ...shooterAfterKnife,
+            classState: {
+              ...shooterAfterKnife.classState,
+              superArmed: false,
+            },
+          };
+        }
+
         const targetIndex = players.findIndex((player) => player.id === target.id);
         const targetCurrent = players[targetIndex]!;
         const damageResult = resolveDamage(targetCurrent, baseDamage, 'bullet');
@@ -442,7 +476,7 @@ export function applyAction(
       // monopolize the chamber.
       const turnPasses = !grantsExtraTurn || capHit;
       const nextItemsUsedThisTurn = turnPasses
-        ? { chocolate: false, magnifier: false, knife: false }
+        ? { chocolate: false, magnifier: false, knife: false, super: false }
         : state.itemsUsedThisTurn;
 
       return {
@@ -454,6 +488,7 @@ export function applyAction(
           phase,
           extraTurnsUsedThisChamber: extraTurns,
           itemsUsedThisTurn: nextItemsUsedThisTurn,
+          rngState: rng.toState(),
           winnerId,
           actionLog: [...state.actionLog, action],
         },

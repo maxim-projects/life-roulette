@@ -18,7 +18,7 @@ function makeView(options: {
     name: 'Bot',
     profileId: null,
     lives: options.selfLives ?? 4,
-    inventory: options.selfInventory ?? { chocolate: 1, magnifier: 1, knife: 0 },
+    inventory: options.selfInventory ?? { chocolate: 1, magnifier: 1, knife: 0, super: 0 },
     isBot: true,
     eliminated: false,
     classId: options.selfClassId ?? null,
@@ -96,7 +96,7 @@ describe('botDecide', () => {
       botDecide(
         makeView({
           selfLives: 1,
-          selfInventory: { chocolate: 1, magnifier: 0, knife: 0 },
+          selfInventory: { chocolate: 1, magnifier: 0, knife: 0, super: 0 },
         }),
         createRng(1),
         {
@@ -177,7 +177,7 @@ describe('botDecide for Double class', () => {
   it('Double sees peeked=live + has knife + weak enemy → arm knife', () => {
     const view = makeView({
       selfLives: 5,
-      selfInventory: { chocolate: 1, magnifier: 1, knife: 1 },
+      selfInventory: { chocolate: 1, magnifier: 1, knife: 1, super: 0 },
       selfClassId: 'double',
       selfClassState: { ...defaultClassState() },
       otherPlayers: [{ id: 'h', name: 'H', lives: 2, eliminated: false, classId: null }],
@@ -194,7 +194,7 @@ describe('botDecide for Double class', () => {
   it('Double without knife in inventory falls through', () => {
     const view = makeView({
       selfLives: 5,
-      selfInventory: { chocolate: 1, magnifier: 1, knife: 0 },
+      selfInventory: { chocolate: 1, magnifier: 1, knife: 0, super: 0 },
       selfClassId: 'double',
       selfClassState: { ...defaultClassState(), knifeUsed: true },
       otherPlayers: [{ id: 'h', name: 'H', lives: 2, eliminated: false, classId: null }],

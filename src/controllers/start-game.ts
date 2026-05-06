@@ -70,7 +70,8 @@ function createHumanPlayer(id: string, selection: SelectedProfile, classId: Clas
     inventory: {
       chocolate: 1 + selection.inventory.chocolate,
       magnifier: 1 + selection.inventory.magnifier,
-      knife: 0,
+      knife: selection.inventory.knife ?? 0,
+      super: selection.inventory.super ?? 0,
     },
     isBot: false,
     eliminated: false,
@@ -85,7 +86,7 @@ function createBotPlayer(classId: ClassId | null): Player {
     name: 'Bot',
     profileId: null,
     lives: 4,
-    inventory: { chocolate: 1, magnifier: 1, knife: 0 },
+    inventory: { chocolate: 1, magnifier: 1, knife: 0, super: 0 },
     isBot: true,
     eliminated: false,
     classId,
@@ -131,8 +132,8 @@ async function startGame(
     blankCount: 0,
   });
   const itemBar = mountItemBarHud(shell.bottom, {
-    inventory: { chocolate: 0, magnifier: 0, knife: 0 },
-    itemsUsed: { chocolate: false, magnifier: false, knife: false },
+    inventory: { chocolate: 0, magnifier: 0, knife: 0, super: 0 },
+    itemsUsed: { chocolate: false, magnifier: false, knife: false, super: false },
     player: null,
   });
   const actionMenu = mountActionMenuHud(shell.bottom, {

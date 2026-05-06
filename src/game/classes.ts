@@ -10,6 +10,7 @@ export function defaultClassState(): ClassState {
     knifeUsed: false,
     lightningUsedThisChamber: false,
     lightningTotalUsed: 0,
+    superArmed: false,
   };
 }
 
@@ -49,6 +50,7 @@ export function classStartingInventory(classId: ClassId | null): Record<ItemId, 
     chocolate: 1,
     magnifier: 1,
     knife: 0,
+    super: 0,
   };
 
   if (classId === 'double') {

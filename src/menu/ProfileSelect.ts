@@ -82,7 +82,7 @@ export function mountProfileSelect(
   const createGuest = (): SelectedProfile => ({
     profileId: null,
     name: total === 1 ? 'Гость' : `Гость ${chosen.length + 1}`,
-    inventory: { chocolate: 0, magnifier: 0, knife: 0 },
+    inventory: { chocolate: 0, magnifier: 0, knife: 0, super: 0 },
     ownedClasses: [],
     currency: 0,
   });

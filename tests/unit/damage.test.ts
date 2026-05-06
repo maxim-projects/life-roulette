@@ -9,7 +9,7 @@ function makePlayer(overrides: Partial<Player> = {}): Player {
     name: 'P1',
     profileId: null,
     lives: 4,
-    inventory: { chocolate: 1, magnifier: 1, knife: 0 },
+    inventory: { chocolate: 1, magnifier: 1, knife: 0, super: 0 },
     isBot: false,
     eliminated: false,
     classId: null,

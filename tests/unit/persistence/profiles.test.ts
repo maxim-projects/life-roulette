@@ -3,6 +3,8 @@ import type { ClassId } from '../../../src/game/types';
 import {
   createProfile,
   deleteProfile,
+  exchangeCurrencyToTokens,
+  exchangeTokensToCurrency,
   getProfile,
   listProfiles,
   updateProfile,
@@ -42,7 +44,7 @@ describe('profiles', () => {
 
     expect(profile.name).toBe('Alice');
     expect(profile.currency).toBe(0);
-    expect(profile.inventory).toEqual({ chocolate: 0, magnifier: 0, knife: 0 });
+    expect(profile.inventory).toEqual({ chocolate: 0, magnifier: 0, knife: 0, super: 0 });
   });
 
   it('list returns saved profiles', () => {
@@ -57,7 +59,7 @@ describe('profiles', () => {
 
     updateProfile(profile.id, {
       currency: 100,
-      inventory: { chocolate: 2, magnifier: 1, knife: 0 },
+      inventory: { chocolate: 2, magnifier: 1, knife: 0, super: 0 },
     });
 
     const reloaded = getProfile(profile.id);
@@ -135,6 +137,70 @@ describe('profiles ownedClasses', () => {
     const profiles = listProfiles();
 
     expect(profiles).toHaveLength(1);
-    expect(profiles[0]!.inventory).toEqual({ chocolate: 2, magnifier: 1, knife: 0 });
+    expect(profiles[0]!.inventory).toEqual({ chocolate: 2, magnifier: 1, knife: 0, super: 0 });
+  });
+
+  it('migrates legacy profiles missing tokens (filling with 0)', () => {
+    memoryStorage.setItem(
+      'life-roulette:profiles',
+      JSON.stringify([
+        {
+          id: 'legacy',
+          name: 'L',
+          currency: 5000,
+          inventory: { chocolate: 0, magnifier: 0, knife: 0 },
+          ownedClasses: [],
+          createdAt: 1,
+          lastUsed: 1,
+        },
+      ]),
+    );
+
+    const profiles = listProfiles();
+    expect(profiles[0]!.tokens).toBe(0);
+  });
+
+  it('newly created profile starts with 0 tokens', () => {
+    const profile = createProfile('Tokenholder');
+    expect(profile.tokens).toBe(0);
+  });
+});
+
+describe('token exchange', () => {
+  it('exchangeCurrencyToTokens: 3000 валюты → 3 токена', () => {
+    const profile = createProfile('Trader');
+    updateProfile(profile.id, { currency: 5000 });
+    const updated = exchangeCurrencyToTokens(profile.id, 3);
+    expect(updated?.currency).toBe(2000);
+    expect(updated?.tokens).toBe(3);
+  });
+
+  it('exchangeCurrencyToTokens: returns null on insufficient currency', () => {
+    const profile = createProfile('Poor');
+    updateProfile(profile.id, { currency: 500 });
+    const result = exchangeCurrencyToTokens(profile.id, 1);
+    expect(result).toBeNull();
+    expect(getProfile(profile.id)?.currency).toBe(500);
+  });
+
+  it('exchangeTokensToCurrency: 2 токена → 2000 валюты', () => {
+    const profile = createProfile('Trader');
+    updateProfile(profile.id, { currency: 0, tokens: 5 });
+    const updated = exchangeTokensToCurrency(profile.id, 2);
+    expect(updated?.currency).toBe(2000);
+    expect(updated?.tokens).toBe(3);
+  });
+
+  it('exchangeTokensToCurrency: returns null on insufficient tokens', () => {
+    const profile = createProfile('Poor');
+    const result = exchangeTokensToCurrency(profile.id, 1);
+    expect(result).toBeNull();
+  });
+
+  it('exchangeCurrencyToTokens: rejects non-positive amount', () => {
+    const profile = createProfile('X');
+    updateProfile(profile.id, { currency: 5000 });
+    expect(exchangeCurrencyToTokens(profile.id, 0)).toBeNull();
+    expect(exchangeCurrencyToTokens(profile.id, -1)).toBeNull();
   });
 });

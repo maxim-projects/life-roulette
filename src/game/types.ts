@@ -1,4 +1,4 @@
-export type ItemId = 'chocolate' | 'magnifier' | 'knife';
+export type ItemId = 'chocolate' | 'magnifier' | 'knife' | 'super';
 export type ClassId = 'medic' | 'tank' | 'specops' | 'double' | 'god';
 export type AbilityId = 'lightning';
 export type Bullet = 'live' | 'blank';
@@ -12,6 +12,8 @@ export interface ClassState {
   knifeUsed: boolean;
   lightningUsedThisChamber: boolean;
   lightningTotalUsed: number;
+  // Super-патрон (доступен любому классу через инвентарь)
+  superArmed: boolean;
 }
 
 export interface Player {
@@ -82,6 +84,9 @@ export type GameEvent =
   | { type: 'armor-broke'; playerId: string }
   | { type: 'knife-armed'; playerId: string }
   | { type: 'knife-doubled-damage'; playerId: string }
+  | { type: 'super-armed'; playerId: string }
+  | { type: 'super-doubled-damage'; playerId: string }
+  | { type: 'super-missed'; playerId: string }
   | { type: 'lightning-cast'; casterId: string; targetId: string; damage: number };
 
 export interface PlayerView {

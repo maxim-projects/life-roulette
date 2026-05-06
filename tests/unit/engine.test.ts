@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { defaultClassState, initialPlayerForClass } from '../../src/game/classes';
 import { applyAction, initGame } from '../../src/game/engine';
-import type { ClassId, Player } from '../../src/game/types';
+import type { ClassId, GameState, Player } from '../../src/game/types';
 
 function makePlayer(id: string, name: string, isBot = false): Player {
   return {
@@ -9,7 +9,7 @@ function makePlayer(id: string, name: string, isBot = false): Player {
     name,
     profileId: null,
     lives: 4,
-    inventory: { chocolate: 1, magnifier: 1, knife: 0 },
+    inventory: { chocolate: 1, magnifier: 1, knife: 0, super: 0 },
     isBot,
     eliminated: false,
     classId: null,
@@ -63,17 +63,17 @@ describe('engine.initGame', () => {
       {
         ...makePlayer('double', 'Double'),
         classId: 'double' as const,
-        inventory: { chocolate: 3, magnifier: 2, knife: 0 },
+        inventory: { chocolate: 3, magnifier: 2, knife: 0, super: 0 },
       },
-      { ...makePlayer('plain', 'Plain'), inventory: { chocolate: 2, magnifier: 4, knife: 0 } },
+      { ...makePlayer('plain', 'Plain'), inventory: { chocolate: 2, magnifier: 4, knife: 0, super: 0 } },
     ];
 
     const state = initGame(players, 42);
     const double = state.players.find((player) => player.id === 'double')!;
     const plain = state.players.find((player) => player.id === 'plain')!;
 
-    expect(double.inventory).toEqual({ chocolate: 3, magnifier: 2, knife: 1 });
-    expect(plain.inventory).toEqual({ chocolate: 2, magnifier: 4, knife: 0 });
+    expect(double.inventory).toEqual({ chocolate: 3, magnifier: 2, knife: 1, super: 0 });
+    expect(plain.inventory).toEqual({ chocolate: 2, magnifier: 4, knife: 0, super: 0 });
   });
 });
 
@@ -160,7 +160,7 @@ describe('engine.applyAction(load-chamber)', () => {
     state = {
       ...state,
       extraTurnsUsedThisChamber: { a: 1 },
-      itemsUsedThisTurn: { chocolate: true, magnifier: false, knife: false },
+      itemsUsedThisTurn: { chocolate: true, magnifier: false, knife: false, super: false },
     };
     state = applyAction(state, { type: 'spin-roulette' }).state;
 
@@ -171,6 +171,7 @@ describe('engine.applyAction(load-chamber)', () => {
       chocolate: false,
       magnifier: false,
       knife: false,
+      super: false,
     });
   });
 });
@@ -190,7 +191,7 @@ describe('engine.applyAction(use-item)', () => {
     state.players[currentIndex] = {
       ...state.players[currentIndex]!,
       lives: 2,
-      inventory: { chocolate: 1, magnifier: 1, knife: 0 },
+      inventory: { chocolate: 1, magnifier: 1, knife: 0, super: 0 },
     };
 
     const result = applyAction(state, { type: 'use-item', itemId: 'chocolate' });
@@ -205,7 +206,7 @@ describe('engine.applyAction(use-item)', () => {
     state.players[currentIndex] = {
       ...state.players[currentIndex]!,
       lives: 4,
-      inventory: { chocolate: 1, magnifier: 1, knife: 0 },
+      inventory: { chocolate: 1, magnifier: 1, knife: 0, super: 0 },
     };
 
     const result = applyAction(state, { type: 'use-item', itemId: 'chocolate' });
@@ -218,7 +219,7 @@ describe('engine.applyAction(use-item)', () => {
     const currentIndex = state.currentPlayerIndex;
     state.players[currentIndex] = {
       ...state.players[currentIndex]!,
-      inventory: { chocolate: 0, magnifier: 0, knife: 0 },
+      inventory: { chocolate: 0, magnifier: 0, knife: 0, super: 0 },
     };
 
     expect(() => applyAction(state, { type: 'use-item', itemId: 'chocolate' })).toThrow();
@@ -228,7 +229,7 @@ describe('engine.applyAction(use-item)', () => {
     let state = setupTurn();
     state = {
       ...state,
-      itemsUsedThisTurn: { chocolate: true, magnifier: false, knife: false },
+      itemsUsedThisTurn: { chocolate: true, magnifier: false, knife: false, super: false },
     };
 
     expect(() => applyAction(state, { type: 'use-item', itemId: 'chocolate' })).toThrow();
@@ -239,7 +240,7 @@ describe('engine.applyAction(use-item)', () => {
     const currentIndex = state.currentPlayerIndex;
     state.players[currentIndex] = {
       ...state.players[currentIndex]!,
-      inventory: { chocolate: 1, magnifier: 1, knife: 0 },
+      inventory: { chocolate: 1, magnifier: 1, knife: 0, super: 0 },
     };
 
     const result = applyAction(state, { type: 'use-item', itemId: 'magnifier' });
@@ -435,7 +436,7 @@ describe('engine.applyAction(shoot)', () => {
     const shooterIndex = state.currentPlayerIndex;
     state = {
       ...state,
-      itemsUsedThisTurn: { chocolate: true, magnifier: true, knife: false },
+      itemsUsedThisTurn: { chocolate: true, magnifier: true, knife: false, super: false },
     };
     state = withChamber(state, ['live', 'blank']);
 
@@ -448,6 +449,7 @@ describe('engine.applyAction(shoot)', () => {
       chocolate: false,
       magnifier: false,
       knife: false,
+      super: false,
     });
   });
 
@@ -456,7 +458,7 @@ describe('engine.applyAction(shoot)', () => {
     const shooterIndex = state.currentPlayerIndex;
     state = {
       ...state,
-      itemsUsedThisTurn: { chocolate: false, magnifier: true, knife: false },
+      itemsUsedThisTurn: { chocolate: false, magnifier: true, knife: false, super: false },
     };
     state = withChamber(state, ['blank', 'live']);
 
@@ -477,7 +479,7 @@ describe('engine.applyAction(shoot)', () => {
     const shooterId = state.players[shooterIndex]!.id;
     state = {
       ...state,
-      itemsUsedThisTurn: { chocolate: true, magnifier: true, knife: false },
+      itemsUsedThisTurn: { chocolate: true, magnifier: true, knife: false, super: false },
       extraTurnsUsedThisChamber: { [shooterId]: 1 },
     };
     state = withChamber(state, ['blank', 'live']);
@@ -492,6 +494,7 @@ describe('engine.applyAction(shoot)', () => {
       chocolate: false,
       magnifier: false,
       knife: false,
+      super: false,
     });
   });
 });
@@ -606,7 +609,7 @@ describe('engine.applyAction(use-item chocolate) with class', () => {
     state.players[0] = {
       ...state.players[0]!,
       lives: 1,
-      inventory: { chocolate: 1, magnifier: 1, knife: 0 },
+      inventory: { chocolate: 1, magnifier: 1, knife: 0, super: 0 },
     };
 
     const result = applyAction(state, { type: 'use-item', itemId: 'chocolate' });
@@ -620,7 +623,7 @@ describe('engine.applyAction(use-item chocolate) with class', () => {
     state.players[0] = {
       ...state.players[0]!,
       lives: 3,
-      inventory: { chocolate: 1, magnifier: 1, knife: 0 },
+      inventory: { chocolate: 1, magnifier: 1, knife: 0, super: 0 },
     };
 
     const result = applyAction(state, { type: 'use-item', itemId: 'chocolate' });
@@ -634,7 +637,7 @@ describe('engine.applyAction(use-item chocolate) with class', () => {
     state.players[0] = {
       ...state.players[0]!,
       lives: 4,
-      inventory: { chocolate: 1, magnifier: 1, knife: 1 },
+      inventory: { chocolate: 1, magnifier: 1, knife: 1, super: 0 },
     };
 
     const result = applyAction(state, { type: 'use-item', itemId: 'chocolate' });
@@ -665,8 +668,8 @@ describe('engine.applyAction(use-item knife)', () => {
       lives: classId === 'double' ? 5 : 4,
       inventory:
         classId === 'double'
-          ? { chocolate: 1, magnifier: 1, knife: 1 }
-          : { chocolate: 1, magnifier: 1, knife: 0 },
+          ? { chocolate: 1, magnifier: 1, knife: 1, super: 0 }
+          : { chocolate: 1, magnifier: 1, knife: 0, super: 0 },
     }));
 
     let state = initGame(players, 42);
@@ -713,8 +716,8 @@ describe('engine.applyAction(use-ability lightning)', () => {
       lives: classId === 'double' ? 5 : 4,
       inventory:
         classId === 'double'
-          ? { chocolate: 1, magnifier: 1, knife: 1 }
-          : { chocolate: 1, magnifier: 1, knife: 0 },
+          ? { chocolate: 1, magnifier: 1, knife: 1, super: 0 }
+          : { chocolate: 1, magnifier: 1, knife: 0, super: 0 },
     }));
 
     let state = initGame(players, 42);
@@ -846,8 +849,8 @@ describe('engine.applyAction(load-chamber) resets per-chamber class state', () =
       lives: classId === 'double' ? 5 : 4,
       inventory:
         classId === 'double'
-          ? { chocolate: 1, magnifier: 1, knife: 1 }
-          : { chocolate: 1, magnifier: 1, knife: 0 },
+          ? { chocolate: 1, magnifier: 1, knife: 1, super: 0 }
+          : { chocolate: 1, magnifier: 1, knife: 0, super: 0 },
     }));
 
     let state = initGame(players, 42);
@@ -897,5 +900,134 @@ describe('engine.applyAction(load-chamber) resets per-chamber class state', () =
         (event) => event.type === 'armor-broke' && (event as { playerId: string }).playerId === 'p0',
       ),
     ).toBe(true);
+  });
+});
+
+describe('engine.applyAction Super-патрон', () => {
+  function setup2p(): GameState {
+    const players: Player[] = [
+      {
+        id: 'p0', name: 'P0', profileId: null,
+        lives: 4, isBot: false, eliminated: false,
+        classId: null, classState: initialPlayerForClass(null),
+        inventory: { chocolate: 1, magnifier: 1, knife: 0, super: 1 },
+      },
+      {
+        id: 'p1', name: 'P1', profileId: null,
+        lives: 4, isBot: false, eliminated: false,
+        classId: null, classState: initialPlayerForClass(null),
+        inventory: { chocolate: 1, magnifier: 1, knife: 0, super: 0 },
+      },
+    ];
+
+    let state = initGame(players, 42);
+    state = applyAction(state, { type: 'spin-roulette' }).state;
+    state = applyAction(state, { type: 'load-chamber' }).state;
+    state.currentPlayerIndex = 0;
+    return state;
+  }
+
+  function withChamber(state: GameState, bullets: Array<'live' | 'blank'>): GameState {
+    return {
+      ...state,
+      chamber: {
+        bullets: [...bullets],
+        liveCount: bullets.filter((b) => b === 'live').length,
+        blankCount: bullets.filter((b) => b === 'blank').length,
+      },
+    };
+  }
+
+  it('use-item super: arms super, decreases inventory', () => {
+    const state = setup2p();
+    const result = applyAction(state, { type: 'use-item', itemId: 'super' });
+
+    expect(result.state.players[0]!.classState.superArmed).toBe(true);
+    expect(result.state.players[0]!.inventory.super).toBe(0);
+    expect(result.events.some((e) => e.type === 'super-armed')).toBe(true);
+  });
+
+  // Super-патрон: 50/50 либо 2 урона, либо промах. Используем разные seed-значения
+  // в state.rngState чтобы детерминированно получить hit или miss в тестах.
+  // Подбор сделан через ручной запуск createRng(seed).next() — вынесено в комментарий.
+
+  it('shoot with armed super on live (rng=hit seed): deals 2 damage, disarms', () => {
+    let state = setup2p();
+    // Подобран seed где первый next() < 0.5 (super hits)
+    state = { ...state, rngState: 1 };
+    state = applyAction(state, { type: 'use-item', itemId: 'super' }).state;
+    state = withChamber(state, ['live']);
+
+    const result = applyAction(state, { type: 'shoot', targetId: 'p1' });
+    // Super hit → 2 damage. Если seed дал miss — урон 0, тест провалится явно.
+    const livesAfter = result.state.players[1]!.lives;
+    const superEvents = result.events.filter(
+      (e) => e.type === 'super-doubled-damage' || e.type === 'super-missed',
+    );
+    expect(superEvents).toHaveLength(1);
+    if (superEvents[0]!.type === 'super-doubled-damage') {
+      expect(livesAfter).toBe(2);
+    } else {
+      expect(livesAfter).toBe(4);
+    }
+    expect(result.state.players[0]!.classState.superArmed).toBe(false);
+  });
+
+  it('shoot with armed super on live: emits exactly one of (super-doubled-damage | super-missed)', () => {
+    // Прогоняем для разных seed что всегда ровно одно событие исхода
+    for (const seed of [1, 5, 17, 99, 123, 256, 1024]) {
+      let state = setup2p();
+      state = { ...state, rngState: seed };
+      state = applyAction(state, { type: 'use-item', itemId: 'super' }).state;
+      state = withChamber(state, ['live']);
+
+      const result = applyAction(state, { type: 'shoot', targetId: 'p1' });
+      const superEvents = result.events.filter(
+        (e) => e.type === 'super-doubled-damage' || e.type === 'super-missed',
+      );
+      expect(superEvents).toHaveLength(1);
+
+      // Damage logic: hit → 2, miss → 0 (super "съедает" обычный урон)
+      if (superEvents[0]!.type === 'super-doubled-damage') {
+        expect(result.state.players[1]!.lives).toBe(2);
+      } else {
+        expect(result.state.players[1]!.lives).toBe(4);
+      }
+    }
+  });
+
+  it('super distribution roughly 50/50 across many seeds', () => {
+    let hits = 0;
+    let misses = 0;
+    for (let seed = 1; seed <= 200; seed += 1) {
+      let state = setup2p();
+      state = { ...state, rngState: seed };
+      state = applyAction(state, { type: 'use-item', itemId: 'super' }).state;
+      state = withChamber(state, ['live']);
+      const result = applyAction(state, { type: 'shoot', targetId: 'p1' });
+      if (result.events.some((e) => e.type === 'super-doubled-damage')) hits += 1;
+      if (result.events.some((e) => e.type === 'super-missed')) misses += 1;
+    }
+    // Допуск: между 35% и 65% hit-ratio (статистический шум)
+    expect(hits + misses).toBe(200);
+    expect(hits).toBeGreaterThan(70);
+    expect(hits).toBeLessThan(130);
+  });
+
+  it('shoot with armed super on blank: super stays armed (only consumed on live)', () => {
+    let state = setup2p();
+    state = applyAction(state, { type: 'use-item', itemId: 'super' }).state;
+    state = withChamber(state, ['blank', 'live']);
+
+    const result = applyAction(state, { type: 'shoot', targetId: 'p1' });
+    expect(result.state.players[0]!.classState.superArmed).toBe(true);
+    expect(result.events.some((e) => e.type === 'super-doubled-damage')).toBe(false);
+    expect(result.events.some((e) => e.type === 'super-missed')).toBe(false);
+  });
+
+  it('use-item super throws if already armed', () => {
+    let state = setup2p();
+    state = applyAction(state, { type: 'use-item', itemId: 'super' }).state;
+    expect(() => applyAction(state, { type: 'use-item', itemId: 'super' })).toThrow();
   });
 });

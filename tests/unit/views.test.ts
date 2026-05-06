@@ -9,7 +9,7 @@ const makePlayer = (id: string, name: string): Player => ({
   name,
   profileId: null,
   lives: 4,
-  inventory: { chocolate: 1, magnifier: 1, knife: 0 },
+  inventory: { chocolate: 1, magnifier: 1, knife: 0, super: 0 },
   isBot: false,
   eliminated: false,
   classId: null,

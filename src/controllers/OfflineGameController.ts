@@ -110,8 +110,8 @@ export class OfflineGameController {
 
   private wireHudCallbacks(): void {
     this.huds.itemBar.update({
-      inventory: { chocolate: 0, magnifier: 0, knife: 0 },
-      itemsUsed: { chocolate: false, magnifier: false, knife: false },
+      inventory: { chocolate: 0, magnifier: 0, knife: 0, super: 0 },
+      itemsUsed: { chocolate: false, magnifier: false, knife: false, super: false },
       player: null,
       onUseItem: (itemId) => {
         if (!this.awaitingHuman || !this.humanResolver) {
@@ -125,6 +125,13 @@ export class OfflineGameController {
         }
 
         this.resolveHumanAction({ type: 'use-item', itemId: 'knife' });
+      },
+      onSuperArm: () => {
+        if (!this.awaitingHuman || !this.humanResolver) {
+          return;
+        }
+
+        this.resolveHumanAction({ type: 'use-item', itemId: 'super' });
       },
       onLightningRequest: async () => {
         await this.requestTargetAction({
@@ -373,7 +380,7 @@ export class OfflineGameController {
     });
 
     this.huds.itemBar.update({
-      inventory: currentPlayer?.inventory ?? { chocolate: 0, magnifier: 0, knife: 0 },
+      inventory: currentPlayer?.inventory ?? { chocolate: 0, magnifier: 0, knife: 0, super: 0 },
       itemsUsed: this.state.itemsUsedThisTurn,
       player: currentPlayer,
       onUseItem: (itemId) => {
@@ -388,6 +395,13 @@ export class OfflineGameController {
         }
 
         this.resolveHumanAction({ type: 'use-item', itemId: 'knife' });
+      },
+      onSuperArm: () => {
+        if (!this.awaitingHuman || !this.humanResolver || currentPlayer?.isBot) {
+          return;
+        }
+
+        this.resolveHumanAction({ type: 'use-item', itemId: 'super' });
       },
       onLightningRequest: async () => {
         if (currentPlayer?.isBot) {

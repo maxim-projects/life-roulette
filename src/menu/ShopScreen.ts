@@ -1,7 +1,17 @@
 import { ALL_CLASS_IDS, CLASS_PRICES } from '../game/classes';
 import type { ClassId } from '../game/types';
 import { CLASS_DESCRIPTIONS, CLASS_ICONS, CLASS_NAMES } from '../i18n';
-import { createProfile, getProfile, listProfiles, updateProfile } from '../persistence/profiles';
+import {
+  createProfile,
+  exchangeCurrencyToTokens,
+  exchangeTokensToCurrency,
+  getProfile,
+  listProfiles,
+  updateProfile,
+  TOKEN_EXCHANGE_RATE,
+} from '../persistence/profiles';
+
+const SUPER_PATRON_PRICE_TOKENS = 1;
 
 export interface ShopScreenProps {
   onBack: () => void;
@@ -107,8 +117,8 @@ export function mountShopScreen(parent: HTMLElement, props: ShopScreenProps): { 
     selectedProfileId = currentProfile?.id ?? null;
 
     subtitle.textContent = currentProfile
-      ? `${currentProfile.name} · ${currentProfile.currency} ₽`
-      : 'Создай профиль, чтобы покупать предметы и классы.';
+      ? `${currentProfile.name} · ${currentProfile.currency} ₽ · ${currentProfile.tokens} 🪙`
+      : 'Создай профиль, чтобы покупать предметы, классы и токены.';
 
     profileList.replaceChildren();
     items.replaceChildren();
@@ -231,6 +241,117 @@ export function mountShopScreen(parent: HTMLElement, props: ShopScreenProps): { 
     }
 
     items.appendChild(classSection);
+
+    // === Обмен валюты ↔ токены ===
+    const exchangeSection = document.createElement('div');
+    exchangeSection.style.cssText = 'margin-top:24px;';
+
+    const exchangeTitle = document.createElement('h3');
+    exchangeTitle.textContent = 'Обмен валюты';
+    exchangeTitle.style.cssText = 'font-size:18px;margin-bottom:12px;';
+    exchangeSection.appendChild(exchangeTitle);
+
+    const exchangeRow = document.createElement('div');
+    exchangeRow.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap;';
+
+    const toTokenBtn = document.createElement('button');
+    toTokenBtn.textContent = `${TOKEN_EXCHANGE_RATE} ₽ → 1 🪙`;
+    const canToToken = !!currentProfile && currentProfile.currency >= TOKEN_EXCHANGE_RATE;
+    toTokenBtn.disabled = !canToToken;
+    toTokenBtn.style.cssText = [
+      'padding:12px 16px;border:none;border-radius:12px;color:white;flex:1;min-width:140px;',
+      canToToken ? 'background:#6c5ce7;cursor:pointer;' : 'background:#444;opacity:0.6;cursor:not-allowed;',
+    ].join('');
+    if (canToToken) {
+      toTokenBtn.onclick = () => {
+        if (currentProfile) {
+          exchangeCurrencyToTokens(currentProfile.id, 1);
+          render();
+        }
+      };
+    }
+
+    const toCurrencyBtn = document.createElement('button');
+    toCurrencyBtn.textContent = `1 🪙 → ${TOKEN_EXCHANGE_RATE} ₽`;
+    const canToCurrency = !!currentProfile && currentProfile.tokens >= 1;
+    toCurrencyBtn.disabled = !canToCurrency;
+    toCurrencyBtn.style.cssText = [
+      'padding:12px 16px;border:none;border-radius:12px;color:white;flex:1;min-width:140px;',
+      canToCurrency ? 'background:#0984e3;cursor:pointer;' : 'background:#444;opacity:0.6;cursor:not-allowed;',
+    ].join('');
+    if (canToCurrency) {
+      toCurrencyBtn.onclick = () => {
+        if (currentProfile) {
+          exchangeTokensToCurrency(currentProfile.id, 1);
+          render();
+        }
+      };
+    }
+
+    exchangeRow.append(toTokenBtn, toCurrencyBtn);
+    exchangeSection.appendChild(exchangeRow);
+    items.appendChild(exchangeSection);
+
+    // === Магазин токенов ===
+    const tokenSection = document.createElement('div');
+    tokenSection.style.cssText = 'margin-top:24px;';
+
+    const tokenTitle = document.createElement('h3');
+    tokenTitle.textContent = '🪙 Магазин токенов';
+    tokenTitle.style.cssText = 'font-size:18px;margin-bottom:12px;';
+    tokenSection.appendChild(tokenTitle);
+
+    const superRow = document.createElement('div');
+    superRow.style.cssText =
+      'display:flex;align-items:center;gap:12px;padding:12px;background:#1a1a2e;border-radius:8px;margin-bottom:8px;';
+
+    const superIcon = document.createElement('span');
+    superIcon.textContent = '🎯';
+    superIcon.style.cssText = 'font-size:24px;';
+
+    const superText = document.createElement('div');
+    superText.style.cssText = 'flex:1;';
+    const superName = document.createElement('div');
+    superName.textContent = 'Супер-патрон';
+    superName.style.cssText = 'font-weight:bold;';
+    const superDesc = document.createElement('div');
+    superDesc.textContent = '50/50: либо 2 урона, либо промах';
+    superDesc.style.cssText = 'font-size:12px;color:#aaa;';
+    const superOwned = document.createElement('div');
+    superOwned.textContent = `В инвентаре: ${currentProfile?.inventory.super ?? 0}/5`;
+    superOwned.style.cssText = 'font-size:12px;color:#888;margin-top:2px;';
+    superText.append(superName, superDesc, superOwned);
+
+    const superBtn = document.createElement('button');
+    superBtn.textContent = `${SUPER_PATRON_PRICE_TOKENS} 🪙`;
+    const superDisabledTokens =
+      !currentProfile || currentProfile.tokens < SUPER_PATRON_PRICE_TOKENS;
+    const superDisabledLimit = (currentProfile?.inventory.super ?? 0) >= 5;
+    superBtn.disabled = superDisabledTokens || superDisabledLimit;
+    superBtn.style.cssText = [
+      'padding:8px 16px;border:none;border-radius:6px;color:white;',
+      superBtn.disabled ? 'background:#444;cursor:not-allowed;' : 'background:#e67e22;cursor:pointer;',
+    ].join('');
+    if (!superBtn.disabled && currentProfile) {
+      superBtn.onclick = () => {
+        const profile = getProfile(currentProfile.id);
+        if (!profile || profile.tokens < SUPER_PATRON_PRICE_TOKENS) return;
+        const owned = profile.inventory.super ?? 0;
+        if (owned >= 5) return;
+        updateProfile(profile.id, {
+          tokens: profile.tokens - SUPER_PATRON_PRICE_TOKENS,
+          inventory: { ...profile.inventory, super: owned + 1 },
+        });
+        render();
+      };
+    }
+    if (superDisabledLimit) {
+      superBtn.textContent = 'Макс';
+    }
+
+    superRow.append(superIcon, superText, superBtn);
+    tokenSection.appendChild(superRow);
+    items.appendChild(tokenSection);
 
     const createButton = document.createElement('button');
     createButton.textContent = 'Создать профиль';

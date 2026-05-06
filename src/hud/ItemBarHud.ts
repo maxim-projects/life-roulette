@@ -7,6 +7,7 @@ export interface ItemBarHudProps {
   player?: Player | null;
   onUseItem?: (itemId: ItemId) => void;
   onKnifeArm?: () => void;
+  onSuperArm?: () => void;
   onLightningRequest?: () => void;
 }
 
@@ -63,6 +64,22 @@ export function mountItemBarHud(
       indicator.textContent = '🔪 ВЗВЕДЁН';
       indicator.style.cssText =
         'display:flex;align-items:center;padding:12px 16px;border-radius:14px;background:#2b1d1d;color:#ff7b7b;font-weight:700;';
+      root.appendChild(indicator);
+    }
+
+    // Super-патрон: доступен любому игроку
+    if (player && (player.inventory.super ?? 0) > 0 && !player.classState.superArmed) {
+      const count = player.inventory.super;
+      root.appendChild(
+        makeItemButton(`🎯 Взвести Супер [${count}]`, () => props.onSuperArm?.()),
+      );
+    }
+
+    if (player?.classState.superArmed) {
+      const indicator = document.createElement('span');
+      indicator.textContent = '🎯 СУПЕР ВЗВЕДЁН';
+      indicator.style.cssText =
+        'display:flex;align-items:center;padding:12px 16px;border-radius:14px;background:#3a2a14;color:#ffb84d;font-weight:700;';
       root.appendChild(indicator);
     }
 
