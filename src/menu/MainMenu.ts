@@ -1,3 +1,5 @@
+import { music } from '../audio/Music';
+
 export interface MainMenuProps {
   onPlay: () => void;
   onShop: () => void;
@@ -36,11 +38,29 @@ export function mountMainMenu(parent: HTMLElement, props: MainMenuProps): { unmo
     button.textContent = action.label;
     button.style.cssText =
       'padding:16px 18px;border:none;border-radius:16px;background:#22314a;color:white;font-size:18px;font-weight:700;';
-    button.onclick = action.onClick;
+    button.onclick = () => {
+      // Запускаем музыку по первому user gesture (browser autoplay policy)
+      music.start();
+      action.onClick();
+    };
     buttons.appendChild(button);
   });
 
-  panel.append(title, subtitle, buttons);
+  // Кнопка mute музыки
+  const musicButton = document.createElement('button');
+  const renderMusicButton = (): void => {
+    musicButton.textContent = music.isMuted() ? '🔇 Музыка выкл' : '🎵 Музыка вкл';
+  };
+  renderMusicButton();
+  musicButton.style.cssText =
+    'padding:12px 16px;border:none;border-radius:14px;background:#1a2438;color:#c5d2f1;font-size:14px;margin-top:12px;';
+  musicButton.onclick = () => {
+    music.start();
+    music.toggleMute();
+    renderMusicButton();
+  };
+
+  panel.append(title, subtitle, buttons, musicButton);
   root.appendChild(panel);
   parent.appendChild(root);
 
