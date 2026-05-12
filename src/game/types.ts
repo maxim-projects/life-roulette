@@ -1,6 +1,6 @@
 export type ItemId = 'chocolate' | 'magnifier' | 'knife' | 'super';
 export type ClassId = 'medic' | 'tank' | 'specops' | 'double' | 'god' | 'darkkiller';
-export type AbilityId = 'lightning';
+export type AbilityId = 'lightning' | 'kill';
 export type Bullet = 'live' | 'blank';
 
 export interface ClassState {
@@ -14,6 +14,9 @@ export interface ClassState {
   lightningTotalUsed: number;
   // Super-патрон (доступен любому классу через инвентарь)
   superArmed: boolean;
+  // Тёмный Киллер: способность "Убить" — 1/раунд, 3/игра
+  killUsedThisChamber: boolean;
+  killTotalUsed: number;
 }
 
 export interface Player {
@@ -87,6 +90,7 @@ export type GameEvent =
   | { type: 'super-armed'; playerId: string }
   | { type: 'super-doubled-damage'; playerId: string }
   | { type: 'super-missed'; playerId: string }
+  | { type: 'kill-used'; killerId: string; targetId: string }
   | { type: 'lightning-cast'; casterId: string; targetId: string; damage: number };
 
 export interface PlayerView {

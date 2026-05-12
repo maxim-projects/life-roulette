@@ -21,6 +21,8 @@ describe('classes', () => {
       lightningUsedThisChamber: false,
       lightningTotalUsed: 0,
       superArmed: false,
+      killUsedThisChamber: false,
+      killTotalUsed: 0,
     });
   });
 

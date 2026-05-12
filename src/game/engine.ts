@@ -99,6 +99,7 @@ export function applyAction(
         let classState = {
           ...player.classState,
           lightningUsedThisChamber: false,
+          killUsedThisChamber: false,
         };
 
         if (player.classId === 'specops' && classState.armorActive) {
@@ -236,11 +237,66 @@ export function applyAction(
       };
     }
     case 'use-ability': {
+      const caster = state.players[state.currentPlayerIndex]!;
+
+      // Тёмный Киллер: способность "Убить" — мгновенно eliminates цели.
+      if (action.ability === 'kill') {
+        if (caster.classId !== 'darkkiller') {
+          throw new Error('Only darkkiller can use kill');
+        }
+        if (caster.classState.killUsedThisChamber) {
+          throw new Error('Kill already used this chamber');
+        }
+        if (caster.classState.killTotalUsed >= 3) {
+          throw new Error('Kill total limit reached');
+        }
+
+        const targetIdx = state.players.findIndex((p) => p.id === action.targetId);
+        if (targetIdx < 0) throw new Error(`Target ${action.targetId} not found`);
+        const target = state.players[targetIdx]!;
+        if (target.eliminated) throw new Error('Target eliminated');
+        if (target.id === caster.id) throw new Error('Cannot kill self');
+
+        const nextPlayers = [...state.players];
+        nextPlayers[targetIdx] = { ...target, lives: 0, eliminated: true };
+        nextPlayers[state.currentPlayerIndex] = {
+          ...caster,
+          classState: {
+            ...caster.classState,
+            killUsedThisChamber: true,
+            killTotalUsed: caster.classState.killTotalUsed + 1,
+          },
+        };
+
+        events.push({ type: 'kill-used', killerId: caster.id, targetId: target.id });
+        events.push({ type: 'lives-changed', playerId: target.id, newLives: 0 });
+        events.push({ type: 'player-eliminated', playerId: target.id });
+
+        // Если остался один живой → game-over
+        const alive = nextPlayers.filter((p) => !p.eliminated);
+        let nextPhase: typeof state.phase = state.phase;
+        let winnerId = state.winnerId;
+        if (alive.length === 1) {
+          nextPhase = 'game-over';
+          winnerId = alive[0]!.id;
+          events.push({ type: 'game-over', winnerId });
+        }
+
+        return {
+          state: {
+            ...state,
+            players: nextPlayers,
+            phase: nextPhase,
+            winnerId,
+            actionLog: [...state.actionLog, action],
+          },
+          events,
+        };
+      }
+
       if (action.ability !== 'lightning') {
         throw new Error(`Unknown ability: ${String(action.ability)}`);
       }
-
-      const caster = state.players[state.currentPlayerIndex]!;
 
       if (caster.classId !== 'god') {
         throw new Error('Only god can cast lightning');

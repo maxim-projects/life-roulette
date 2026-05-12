@@ -9,6 +9,7 @@ export interface ItemBarHudProps {
   onKnifeArm?: () => void;
   onSuperArm?: () => void;
   onLightningRequest?: () => void;
+  onKillRequest?: () => void;
 }
 
 export function mountItemBarHud(
@@ -81,6 +82,19 @@ export function mountItemBarHud(
       indicator.style.cssText =
         'display:flex;align-items:center;padding:12px 16px;border-radius:14px;background:#3a2a14;color:#ffb84d;font-weight:700;';
       root.appendChild(indicator);
+    }
+
+    if (player?.classId === 'darkkiller') {
+      const used = player.classState.killTotalUsed;
+      const usedThisChamber = player.classState.killUsedThisChamber;
+      const button = makeItemButton(`💀 Убить (${3 - used}/3)`, () => {
+        props.onKillRequest?.();
+      });
+      if (used >= 3 || usedThisChamber) {
+        button.disabled = true;
+        button.style.opacity = '0.5';
+      }
+      root.appendChild(button);
     }
 
     if (player?.classId === 'god') {

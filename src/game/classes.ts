@@ -11,6 +11,8 @@ export function defaultClassState(): ClassState {
     lightningUsedThisChamber: false,
     lightningTotalUsed: 0,
     superArmed: false,
+    killUsedThisChamber: false,
+    killTotalUsed: 0,
   };
 }
 

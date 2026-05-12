@@ -144,6 +144,17 @@ export class OfflineGameController {
           }),
         });
       },
+      onKillRequest: async () => {
+        await this.requestTargetAction({
+          confirmText: '💀 Убить',
+          excludeCurrentPlayer: true,
+          buildAction: (targetId) => ({
+            type: 'use-ability',
+            ability: 'kill',
+            targetId,
+          }),
+        });
+      },
     });
 
     this.huds.actionMenu.update({
@@ -402,6 +413,18 @@ export class OfflineGameController {
         }
 
         this.resolveHumanAction({ type: 'use-item', itemId: 'super' });
+      },
+      onKillRequest: async () => {
+        if (currentPlayer?.isBot) return;
+        await this.requestTargetAction({
+          confirmText: '💀 Убить',
+          excludeCurrentPlayer: true,
+          buildAction: (targetId) => ({
+            type: 'use-ability',
+            ability: 'kill',
+            targetId,
+          }),
+        });
       },
       onLightningRequest: async () => {
         if (currentPlayer?.isBot) {
