@@ -18,17 +18,23 @@ function createGameShell(root: HTMLElement): {
   top: HTMLElement;
   bottom: HTMLElement;
 } {
+  // flex-column scrollable: на маленьких экранах (5+ игроков) HUD не уезжает —
+  // root скроллится, bottom (с кнопкой Стрелять) sticky внизу viewport.
   root.style.cssText =
-    'display:grid;grid-template-rows:auto 1fr auto;min-height:100%;background:linear-gradient(180deg,#0d1320 0%,#0a0d14 100%);';
+    'display:flex;flex-direction:column;height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;background:linear-gradient(180deg,#0d1320 0%,#0a0d14 100%);';
 
   const top = document.createElement('div');
+  top.style.cssText = 'flex-shrink:0;';
   const middle = document.createElement('div');
   const bottom = document.createElement('div');
   const canvas = document.createElement('canvas');
 
-  middle.style.cssText = 'position:relative;min-height:52vh;padding:0 16px 16px;';
-  canvas.style.cssText = 'width:100%;height:100%;border-radius:24px;border:1px solid #263149;background:#0c1017;';
+  middle.style.cssText = 'position:relative;flex-shrink:0;min-height:38vh;padding:0 16px 16px;';
+  canvas.style.cssText = 'width:100%;height:38vh;border-radius:24px;border:1px solid #263149;background:#0c1017;';
   middle.appendChild(canvas);
+
+  bottom.style.cssText =
+    'flex-shrink:0;position:sticky;bottom:0;background:linear-gradient(180deg,rgba(10,13,20,0) 0%,#0a0d14 30%);padding-top:8px;z-index:10;';
 
   root.append(top, middle, bottom);
 
