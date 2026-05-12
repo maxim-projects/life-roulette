@@ -63,7 +63,8 @@ export function classStartingInventory(classId: ClassId | null): Record<ItemId, 
   return base;
 }
 
-export const CLASS_PRICES: Record<ClassId, number> = {
+/** Классы, продающиеся за валюту (₽). */
+export const CLASS_PRICES: Record<Exclude<ClassId, 'darkkiller'>, number> = {
   medic: 200,
   tank: 300,
   specops: 400,
@@ -71,7 +72,19 @@ export const CLASS_PRICES: Record<ClassId, number> = {
   god: 10000,
 };
 
-export const ALL_CLASS_IDS: ClassId[] = ['medic', 'tank', 'specops', 'double', 'god'];
+/** Классы, продающиеся за токены (🪙). */
+export const CLASS_TOKEN_PRICES: Partial<Record<ClassId, number>> = {
+  darkkiller: 50,
+};
+
+export const ALL_CLASS_IDS: ClassId[] = ['medic', 'tank', 'specops', 'double', 'god', 'darkkiller'];
+export const ALL_CURRENCY_CLASS_IDS: Array<Exclude<ClassId, 'darkkiller'>> = [
+  'medic',
+  'tank',
+  'specops',
+  'double',
+  'god',
+];
 
 /**
  * Множитель наград валюты за победу/участие в зависимости от класса.
@@ -84,6 +97,7 @@ export const CLASS_REWARD_MULTIPLIER: Record<ClassId, number> = {
   specops: 1.5,
   double: 2.0,
   god: 4.0,
+  darkkiller: 10.0,
 };
 
 export function rewardMultiplierForClass(classId: ClassId | null): number {

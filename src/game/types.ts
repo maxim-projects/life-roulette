@@ -1,5 +1,5 @@
 export type ItemId = 'chocolate' | 'magnifier' | 'knife' | 'super';
-export type ClassId = 'medic' | 'tank' | 'specops' | 'double' | 'god';
+export type ClassId = 'medic' | 'tank' | 'specops' | 'double' | 'god' | 'darkkiller';
 export type AbilityId = 'lightning';
 export type Bullet = 'live' | 'blank';
 

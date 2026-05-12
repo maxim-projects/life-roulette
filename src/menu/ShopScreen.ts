@@ -1,4 +1,4 @@
-import { ALL_CLASS_IDS, CLASS_PRICES } from '../game/classes';
+import { ALL_CURRENCY_CLASS_IDS, CLASS_PRICES, CLASS_TOKEN_PRICES } from '../game/classes';
 import type { ClassId } from '../game/types';
 import { CLASS_DESCRIPTIONS, CLASS_ICONS, CLASS_NAMES } from '../i18n';
 import {
@@ -96,9 +96,22 @@ export function mountShopScreen(parent: HTMLElement, props: ShopScreenProps): { 
       return;
     }
 
-    const price = CLASS_PRICES[classId];
+    // Класс может быть за валюту или за токены
+    const tokenPrice = CLASS_TOKEN_PRICES[classId];
+    if (tokenPrice !== undefined) {
+      if (profile.tokens < tokenPrice) return;
+      updateProfile(profile.id, {
+        tokens: profile.tokens - tokenPrice,
+        ownedClasses: [...profile.ownedClasses, classId],
+      });
+      props.onBuyClass?.(classId);
+      render();
+      return;
+    }
 
-    if (profile.currency < price) {
+    const price = (CLASS_PRICES as Record<string, number | undefined>)[classId];
+
+    if (price === undefined || profile.currency < price) {
       return;
     }
 
@@ -191,7 +204,7 @@ export function mountShopScreen(parent: HTMLElement, props: ShopScreenProps): { 
       classSection.appendChild(hint);
     }
 
-    for (const classId of ALL_CLASS_IDS) {
+    for (const classId of ALL_CURRENCY_CLASS_IDS) {
       const owned = currentProfile?.ownedClasses.includes(classId) ?? false;
       const price = CLASS_PRICES[classId];
       const canAfford = (currentProfile?.currency ?? 0) >= price;
@@ -351,6 +364,55 @@ export function mountShopScreen(parent: HTMLElement, props: ShopScreenProps): { 
 
     superRow.append(superIcon, superText, superBtn);
     tokenSection.appendChild(superRow);
+
+    // Тёмный Киллер — класс за токены
+    for (const [classIdKey, tokenPrice] of Object.entries(CLASS_TOKEN_PRICES)) {
+      if (tokenPrice === undefined) continue;
+      const classId = classIdKey as ClassId;
+      const owned = currentProfile?.ownedClasses.includes(classId) ?? false;
+      const canAfford = (currentProfile?.tokens ?? 0) >= tokenPrice;
+
+      const row = document.createElement('div');
+      row.style.cssText =
+        'display:flex;align-items:center;gap:12px;padding:12px;background:#1a1a2e;border-radius:8px;margin-bottom:8px;';
+
+      const icon = document.createElement('span');
+      icon.textContent = CLASS_ICONS[classId];
+      icon.style.cssText = 'font-size:24px;';
+
+      const text = document.createElement('div');
+      text.style.cssText = 'flex:1;';
+      const name = document.createElement('div');
+      name.textContent = CLASS_NAMES[classId];
+      name.style.cssText = 'font-weight:bold;';
+      const description = document.createElement('div');
+      description.textContent = CLASS_DESCRIPTIONS[classId];
+      description.style.cssText = 'font-size:12px;color:#aaa;';
+      text.append(name, description);
+
+      const button = document.createElement('button');
+      if (owned) {
+        button.textContent = '✓ Куплено';
+        button.disabled = true;
+        button.style.cssText =
+          'background:#2ecc71;color:white;border:none;padding:8px 16px;border-radius:6px;';
+      } else {
+        button.textContent = `${tokenPrice} 🪙`;
+        button.disabled = !currentProfile || !canAfford;
+        button.style.cssText = [
+          `background:${button.disabled ? '#444' : '#6c5ce7'}`,
+          'color:white;border:none;padding:8px 16px;border-radius:6px;',
+          `cursor:${button.disabled ? 'not-allowed' : 'pointer'};`,
+        ].join('');
+        if (!button.disabled) {
+          button.onclick = () => buyClass(classId);
+        }
+      }
+
+      row.append(icon, text, button);
+      tokenSection.appendChild(row);
+    }
+
     items.appendChild(tokenSection);
 
     const createButton = document.createElement('button');
