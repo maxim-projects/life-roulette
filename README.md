@@ -20,7 +20,7 @@
 
 ## URL
 
-https://oxi-717.github.io/life-roulette/
+https://maxim-projects.github.io/life-roulette/
 
 ## Конвенции для разработки
 
