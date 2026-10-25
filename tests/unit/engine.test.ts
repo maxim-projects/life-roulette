@@ -840,6 +840,102 @@ describe('engine.applyAction(use-ability lightning)', () => {
   });
 });
 
+describe('engine.applyAction(use-ability kill)', () => {
+  function setup3pWithClasses(classes: Array<ClassId | null>) {
+    const players = classes.map((classId, index) => ({
+      ...makePlayer(`p${index}`, `P${index}`),
+      classId,
+      classState: initialPlayerForClass(classId),
+      lives: classId === 'double' ? 5 : 4,
+      inventory:
+        classId === 'double'
+          ? { chocolate: 1, magnifier: 1, knife: 1, super: 0 }
+          : { chocolate: 1, magnifier: 1, knife: 0, super: 0 },
+    }));
+
+    let state = initGame(players, 42);
+    state = applyAction(state, { type: 'spin-roulette' }).state;
+    state = applyAction(state, { type: 'load-chamber' }).state;
+
+    return state;
+  }
+
+  it('DarkKiller eliminates a classed target', () => {
+    let state = setup3pWithClasses(['darkkiller', 'tank', null]);
+    state.currentPlayerIndex = 0;
+    state.phase = 'turn-item';
+
+    const result = applyAction(state, {
+      type: 'use-ability',
+      ability: 'kill',
+      targetId: 'p1',
+    });
+
+    expect(result.state.players[1]!.eliminated).toBe(true);
+    expect(result.state.players[1]!.lives).toBe(0);
+    expect(result.state.players[0]!.classState.killTotalUsed).toBe(1);
+    expect(result.events.some((event) => event.type === 'kill-used')).toBe(true);
+  });
+
+  it('Cannot kill a full-HP newbie (no class)', () => {
+    let state = setup3pWithClasses(['darkkiller', null, null]);
+    state.currentPlayerIndex = 0;
+    state.phase = 'turn-item';
+
+    expect(() =>
+      applyAction(state, {
+        type: 'use-ability',
+        ability: 'kill',
+        targetId: 'p1',
+      }),
+    ).toThrow();
+  });
+
+  it('Charge is NOT consumed when blocked by newbie protection', () => {
+    let state = setup3pWithClasses(['darkkiller', null, null]);
+    state.currentPlayerIndex = 0;
+    state.phase = 'turn-item';
+
+    try {
+      applyAction(state, { type: 'use-ability', ability: 'kill', targetId: 'p1' });
+    } catch {
+      // ожидаемо
+    }
+
+    expect(state.players[0]!.classState.killTotalUsed).toBe(0);
+    expect(state.players[0]!.classState.killUsedThisChamber).toBe(false);
+  });
+
+  it('Can kill a newbie once they lost a life', () => {
+    let state = setup3pWithClasses(['darkkiller', null, null]);
+    state.currentPlayerIndex = 0;
+    state.phase = 'turn-item';
+    state.players[1]!.lives = 3;
+
+    const result = applyAction(state, {
+      type: 'use-ability',
+      ability: 'kill',
+      targetId: 'p1',
+    });
+
+    expect(result.state.players[1]!.eliminated).toBe(true);
+  });
+
+  it('Newbie protection does NOT shield a classed full-HP player', () => {
+    let state = setup3pWithClasses(['darkkiller', 'medic', null]);
+    state.currentPlayerIndex = 0;
+    state.phase = 'turn-item';
+
+    const result = applyAction(state, {
+      type: 'use-ability',
+      ability: 'kill',
+      targetId: 'p1',
+    });
+
+    expect(result.state.players[1]!.eliminated).toBe(true);
+  });
+});
+
 describe('engine.applyAction(load-chamber) resets per-chamber class state', () => {
   function setup3pWithClasses(classes: Array<ClassId | null>) {
     const players = classes.map((classId, index) => ({

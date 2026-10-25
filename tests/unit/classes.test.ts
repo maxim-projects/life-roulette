@@ -5,6 +5,7 @@ import {
   classStartingInventory,
   defaultClassState,
   initialPlayerForClass,
+  isKillProtected,
   rewardMultiplierForClass,
 } from '../../src/game/classes';
 import type { ClassId } from '../../src/game/types';
@@ -45,6 +46,21 @@ describe('classes', () => {
     expect(classMaxLives('specops')).toBe(4);
     expect(classMaxLives('god')).toBe(4);
     expect(classMaxLives(null)).toBe(4);
+  });
+
+  it('isKillProtected: full-HP newbie is protected', () => {
+    expect(isKillProtected(null, 4)).toBe(true);
+  });
+
+  it('isKillProtected: wounded newbie is NOT protected', () => {
+    expect(isKillProtected(null, 3)).toBe(false);
+  });
+
+  it('isKillProtected: classed players are never protected', () => {
+    expect(isKillProtected('medic', 4)).toBe(false);
+    expect(isKillProtected('tank', 4)).toBe(false);
+    expect(isKillProtected('double', 5)).toBe(false);
+    expect(isKillProtected('god', 4)).toBe(false);
   });
 
   it('classStartingInventory: double has 1 knife, others have 0', () => {

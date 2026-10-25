@@ -3,6 +3,7 @@ import {
   classStartingInventory,
   classStartingLives,
   initialPlayerForClass,
+  isKillProtected,
 } from './classes';
 import { fireBullet, generateChamber } from './chamber';
 import { resolveDamage } from './damage';
@@ -256,6 +257,10 @@ export function applyAction(
         const target = state.players[targetIdx]!;
         if (target.eliminated) throw new Error('Target eliminated');
         if (target.id === caster.id) throw new Error('Cannot kill self');
+        // Новичок с полным HP неуязвим к «Убить» — заряд не тратится.
+        if (isKillProtected(target.classId, target.lives)) {
+          throw new Error('Cannot kill protected newbie');
+        }
 
         const nextPlayers = [...state.players];
         nextPlayers[targetIdx] = { ...target, lives: 0, eliminated: true };

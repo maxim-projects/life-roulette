@@ -1,5 +1,5 @@
 import { botDecide } from '../game/bot';
-import { calculateReward } from '../game/classes';
+import { calculateReward, isKillProtected } from '../game/classes';
 import { applyAction } from '../game/engine';
 import { createRng } from '../game/rng';
 import { getPlayerView } from '../game/views';
@@ -148,6 +148,7 @@ export class OfflineGameController {
         await this.requestTargetAction({
           confirmText: '💀 Убить',
           excludeCurrentPlayer: true,
+          targetFilter: (player) => !isKillProtected(player.classId, player.lives),
           buildAction: (targetId) => ({
             type: 'use-ability',
             ability: 'kill',
@@ -327,6 +328,7 @@ export class OfflineGameController {
     confirmText: string;
     excludeCurrentPlayer: boolean;
     buildAction: (targetId: string) => Action;
+    targetFilter?: (player: Player) => boolean;
   }): Promise<void> {
     if (!this.awaitingHuman || !this.humanResolver) {
       return;
@@ -341,6 +343,7 @@ export class OfflineGameController {
     const eligibleTargets = this.state.players
       .filter((player) => !player.eliminated)
       .filter((player) => !options.excludeCurrentPlayer || player.id !== currentPlayer.id)
+      .filter((player) => !options.targetFilter || options.targetFilter(player))
       .map((player) => player.id);
 
     if (eligibleTargets.length === 0) {
@@ -419,6 +422,7 @@ export class OfflineGameController {
         await this.requestTargetAction({
           confirmText: '💀 Убить',
           excludeCurrentPlayer: true,
+          targetFilter: (player) => !isKillProtected(player.classId, player.lives),
           buildAction: (targetId) => ({
             type: 'use-ability',
             ability: 'kill',

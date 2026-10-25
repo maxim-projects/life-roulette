@@ -47,6 +47,16 @@ export function classStartingLives(classId: ClassId | null): number {
   return 4;
 }
 
+/**
+ * Защита новичка от способности «Убить» Тёмного Киллера.
+ * Новичок (без класса) с полным запасом жизней неуязвим — киллеру нужно
+ * дождаться, пока цель потеряет хотя бы одну жизнь. Это даёт новым игрокам
+ * шанс отыграться против премиум-класса.
+ */
+export function isKillProtected(classId: ClassId | null, lives: number): boolean {
+  return classId === null && lives >= classMaxLives(classId);
+}
+
 export function classStartingInventory(classId: ClassId | null): Record<ItemId, number> {
   const base: Record<ItemId, number> = {
     chocolate: 1,
